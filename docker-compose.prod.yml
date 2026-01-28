@@ -1,0 +1,19 @@
+version: "3.9"
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      - NEWSAPI_KEY=${NEWSAPI_KEY}
+      - AVIATIONSTACK_API_KEY=${AVIATIONSTACK_API_KEY}
+      - OPENSKY_USERNAME=${OPENSKY_USERNAME:-}
+      - OPENSKY_PASSWORD=${OPENSKY_PASSWORD:-}
+      - OPENSKY_CLIENT_ID=${OPENSKY_CLIENT_ID:-}
+      - OPENSKY_CLIENT_SECRET=${OPENSKY_CLIENT_SECRET:-}
+    ports:
+      - "4000:4000"
+    restart: unless-stopped

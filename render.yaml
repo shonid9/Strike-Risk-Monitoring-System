@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: iran-strike-risk-monitor
+    env: node
+    buildCommand: cd backend && npm install && npm run build
+    startCommand: cd backend && node dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: OPENWEATHER_API_KEY
+        sync: false
+      - key: NEWSAPI_KEY
+        sync: false
+      - key: AVIATIONSTACK_API_KEY
+        sync: false
+      - key: OPENSKY_USERNAME
+        sync: false
+        optional: true
+      - key: OPENSKY_PASSWORD
+        sync: false
+        optional: true
+      - key: OPENSKY_CLIENT_ID
+        sync: false
+        optional: true
+      - key: OPENSKY_CLIENT_SECRET
+        sync: false
+        optional: true

@@ -1,0 +1,2939 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Strike Risk Monitoring System</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      :root {
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        color: #e6f4e6;
+        background: #000000;
+        --scada-green: #00ff00;
+        --scada-yellow: #ffff00;
+        --scada-red: #ff0000;
+        --scada-blue: #00aaff;
+        --scada-bg: #0a0a0a;
+        --scada-panel: #1a1a1a;
+        --scada-border: #333333;
+        --text-primary: #e6f4e6;
+        --text-muted: #9bb69b;
+        --text-strong: #f4fff4;
+      }
+      body {
+        margin: 0;
+        padding: 12px;
+        background: var(--scada-bg);
+        color: var(--text-primary);
+        overflow-x: hidden;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      .header {
+        background: var(--scada-panel);
+        border: 2px solid var(--scada-border);
+        padding: 12px 20px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        box-shadow: 0 0 20px rgba(0, 255, 0, 0.1);
+      }
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 22px;
+        color: var(--text-strong);
+        text-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
+        letter-spacing: 0.5px;
+      }
+      .status-bar {
+        display: flex;
+        gap: 12px 20px;
+        font-size: 12px;
+        flex-wrap: wrap;
+      }
+      .status-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .donate-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: linear-gradient(135deg, rgba(0, 255, 136, 0.2), rgba(0, 170, 255, 0.2));
+        border: 1px solid rgba(0, 255, 136, 0.6);
+        color: var(--text-strong);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        cursor: pointer;
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.25);
+        transition: all 0.25s ease;
+      }
+      .donate-button:hover {
+        transform: translateY(-1px);
+        border-color: rgba(0, 255, 136, 0.9);
+        box-shadow: 0 0 20px rgba(0, 255, 136, 0.45);
+        color: #ffffff;
+      }
+      .donate-button:focus-visible {
+        outline: 2px solid var(--scada-yellow);
+        outline-offset: 2px;
+      }
+      .donate-icon {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 30% 30%, #00ff88, #00aaff);
+        box-shadow: 0 0 10px rgba(0, 255, 136, 0.6);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #00110a;
+        font-size: 12px;
+      }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--scada-green);
+        box-shadow: 0 0 8px var(--scada-green);
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .card {
+        background: linear-gradient(135deg, var(--scada-panel) 0%, #151515 100%);
+        border: 2px solid var(--scada-border);
+        padding: 12px;
+        position: relative;
+        border-radius: 8px;
+        box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+        overflow: hidden;
+      }
+      .card:hover {
+        border-color: rgba(0, 255, 0, 0.5);
+        box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5), 0 4px 20px rgba(0, 255, 0, 0.2);
+      }
+      .card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--scada-green), var(--scada-blue), var(--scada-green));
+        background-size: 200% 100%;
+        box-shadow: 0 0 10px var(--scada-green);
+        animation: shimmer 3s infinite;
+      }
+      @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+      }
+      .card-title {
+        font-size: 13px;
+        color: var(--scada-yellow);
+        margin: 0 0 8px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        border-bottom: 1px solid var(--scada-border);
+        padding-bottom: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .gauge-container {
+        position: relative;
+        width: 100%;
+        height: 200px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        margin: 12px 0;
+      }
+      .circular-gauge {
+        width: 180px;
+        height: 180px;
+        position: relative;
+      }
+      .gauge-svg {
+        transform: rotate(-90deg);
+        width: 100%;
+        height: 100%;
+      }
+      .gauge-track {
+        fill: none;
+        stroke: rgba(51, 51, 51, 0.5);
+        stroke-width: 12;
+        stroke-linecap: round;
+      }
+      .gauge-fill {
+        fill: none;
+        stroke-width: 12;
+        stroke-linecap: round;
+        stroke-dasharray: 471.24;
+        stroke-dashoffset: 471.24;
+        transition: stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.5s ease;
+        transform-origin: center;
+        filter: drop-shadow(0 0 8px currentColor);
+      }
+      .gauge-fill.low { stroke: var(--scada-green); }
+      .gauge-fill.medium { stroke: var(--scada-yellow); }
+      .gauge-fill.high { stroke: #ff8800; }
+      .gauge-fill.critical { stroke: var(--scada-red); }
+      .gauge-value {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 48px;
+        font-weight: bold;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        transition: color 0.6s ease, text-shadow 0.6s ease;
+        text-align: center;
+      }
+      .gauge-value.low { 
+        color: var(--scada-green);
+        text-shadow: 0 0 20px var(--scada-green), 0 0 40px var(--scada-green);
+      }
+      .gauge-value.medium { 
+        color: var(--scada-yellow);
+        text-shadow: 0 0 20px var(--scada-yellow), 0 0 40px var(--scada-yellow);
+      }
+      .gauge-value.high { 
+        color: #ff8800;
+        text-shadow: 0 0 20px #ff8800, 0 0 40px #ff8800;
+      }
+      .gauge-value.critical { 
+        color: var(--scada-red);
+        text-shadow: 0 0 20px var(--scada-red), 0 0 40px var(--scada-red);
+      }
+      .risk-badge-large {
+        margin-top: 8px;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: all 0.5s ease;
+        border: 2px solid;
+      }
+      .risk-badge-large.low {
+        background: rgba(0, 255, 0, 0.15);
+        color: var(--scada-green);
+        border-color: var(--scada-green);
+        box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+      }
+      .risk-badge-large.medium {
+        background: rgba(255, 255, 0, 0.15);
+        color: var(--scada-yellow);
+        border-color: var(--scada-yellow);
+        box-shadow: 0 0 15px rgba(255, 255, 0, 0.3);
+      }
+      .risk-badge-large.high {
+        background: rgba(255, 136, 0, 0.15);
+        color: #ff8800;
+        border-color: #ff8800;
+        box-shadow: 0 0 15px rgba(255, 136, 0, 0.3);
+      }
+      .risk-badge-large.critical {
+        background: rgba(255, 0, 0, 0.15);
+        color: var(--scada-red);
+        border-color: var(--scada-red);
+        box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+        animation: pulse 1s infinite;
+      }
+      .indicator-value {
+        font-size: 28px;
+        font-weight: bold;
+        color: var(--scada-blue);
+        text-shadow: 0 0 10px var(--scada-blue);
+        margin: 4px 0;
+        transition: all 0.5s ease;
+      }
+      .indicator-value.updating {
+        transform: scale(1.1);
+        text-shadow: 0 0 20px var(--scada-blue);
+      }
+      .metric-label {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 4px;
+      }
+      .chart-container {
+        position: relative;
+        height: 120px;
+        margin-top: 8px;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(0, 255, 0, 0.2);
+        border-radius: 4px;
+        padding: 4px;
+      }
+      .chart-container canvas {
+        filter: drop-shadow(0 0 3px rgba(0, 255, 0, 0.3));
+      }
+      .chart-container::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, 
+          transparent, 
+          rgba(0, 255, 0, 0.1), 
+          transparent
+        );
+        animation: scan 3s infinite;
+        pointer-events: none;
+      }
+      @keyframes scan {
+        0% { left: -100%; }
+        100% { left: 100%; }
+      }
+      .map-container {
+        height: 300px;
+        border: 2px solid var(--scada-border);
+        background: #000;
+        position: relative;
+        border-radius: 6px;
+      }
+      .map-filters {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: rgba(0, 0, 0, 0.7);
+        border: 1px solid var(--scada-border);
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 11px;
+        color: var(--text-primary);
+        z-index: 1000;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .map-filters label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+      }
+      .map-filters input[type="checkbox"] {
+        accent-color: var(--scada-blue);
+        cursor: pointer;
+      }
+      .signal-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      .signal-list li {
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--scada-border);
+        font-size: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+      .signal-list li:hover {
+        background: rgba(0, 255, 0, 0.1);
+      }
+      .signal-name {
+        color: var(--scada-blue);
+      }
+      .signal-value {
+        color: var(--scada-green);
+        font-weight: bold;
+      }
+      .indicator {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        margin-right: 6px;
+      }
+      .indicator.active {
+        background: var(--scada-green);
+        box-shadow: 0 0 8px var(--scada-green);
+        animation: blink 1s infinite;
+      }
+      .indicator.warning {
+        background: var(--scada-yellow);
+        box-shadow: 0 0 8px var(--scada-yellow);
+      }
+      .indicator.critical {
+        background: var(--scada-red);
+        box-shadow: 0 0 8px var(--scada-red);
+      }
+      @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+      }
+      .full-width {
+        grid-column: 1 / -1;
+      }
+      .half-width {
+        grid-column: span 2;
+      }
+      .trend-up { color: var(--scada-red); }
+      .trend-down { color: var(--scada-green); }
+      .trend-stable { color: var(--scada-yellow); }
+      .timestamp {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 4px;
+      }
+      .analysis-panel {
+        background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(20, 20, 20, 0.6) 100%);
+        border: 1px solid var(--scada-border);
+        border-radius: 4px;
+        padding: 8px;
+        margin-top: 8px;
+        max-height: none;
+        overflow: hidden;
+        font-size: 12px;
+        line-height: 1.6;
+        transition: all 0.3s ease;
+        scrollbar-width: thin;
+        scrollbar-color: var(--scada-green) transparent;
+      }
+      .analysis-panel::-webkit-scrollbar {
+        width: 4px;
+      }
+      .analysis-panel::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .analysis-panel::-webkit-scrollbar-thumb {
+        background: var(--scada-green);
+        border-radius: 2px;
+      }
+      .analysis-panel:hover {
+        border-color: rgba(0, 255, 0, 0.5);
+        box-shadow: inset 0 0 10px rgba(0, 255, 0, 0.1);
+      }
+      .analysis-summary {
+        color: var(--scada-blue);
+        margin-bottom: 6px;
+        font-weight: bold;
+        text-shadow: 0 0 5px rgba(0, 170, 255, 0.5);
+      }
+      .analysis-hint {
+        margin-top: 6px;
+        color: var(--text-muted);
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .analysis-hint-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--scada-blue);
+        color: #000;
+        font-size: 10px;
+        font-weight: bold;
+        flex: 0 0 auto;
+      }
+      .analysis-details {
+        color: #aaa;
+        margin: 3px 0;
+        padding-left: 12px;
+        position: relative;
+        transition: color 0.2s ease;
+      }
+      .analysis-details::before {
+        content: "▸";
+        position: absolute;
+        left: 0;
+        color: var(--scada-green);
+        font-size: 8px;
+      }
+      .analysis-details:hover {
+        color: var(--scada-green);
+      }
+      .analysis-recommendation {
+        color: var(--scada-yellow);
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid var(--scada-border);
+        font-style: italic;
+        text-shadow: 0 0 5px rgba(255, 255, 0, 0.3);
+      }
+      .risk-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: bold;
+        margin-left: 6px;
+      }
+      .risk-badge.low { background: rgba(0, 255, 0, 0.2); color: var(--scada-green); }
+      .risk-badge.medium { background: rgba(255, 255, 0, 0.2); color: var(--scada-yellow); }
+      .risk-badge.high { background: rgba(255, 165, 0, 0.2); color: #ff8800; }
+      .risk-badge.critical { background: rgba(255, 0, 0, 0.2); color: var(--scada-red); }
+      .info-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--scada-blue);
+        color: #000;
+        font-size: 12px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-left: 6px;
+        transition: all 0.3s ease;
+        border: 1px solid var(--scada-blue);
+        vertical-align: middle;
+        appearance: none;
+        padding: 0;
+      }
+      .info-button:hover {
+        background: var(--scada-green);
+        border-color: var(--scada-green);
+        transform: scale(1.2);
+        box-shadow: 0 0 8px var(--scada-green);
+      }
+      .info-button:focus-visible {
+        outline: 2px solid var(--scada-yellow);
+        outline-offset: 2px;
+      }
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.85);
+        z-index: 10000;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(4px);
+      }
+      .modal-overlay.active {
+        display: flex;
+      }
+      .modal-content {
+        background: linear-gradient(135deg, var(--scada-panel) 0%, #151515 100%);
+        border: 2px solid var(--scada-border);
+        padding: 20px;
+        max-width: 680px;
+        width: 90vw;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+        position: relative;
+        border-radius: 10px;
+      }
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        border-bottom: 2px solid var(--scada-border);
+        padding-bottom: 12px;
+      }
+      .modal-title {
+        font-size: 18px;
+        color: var(--scada-yellow);
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .modal-close {
+        background: transparent;
+        border: 1px solid var(--scada-border);
+        color: var(--scada-green);
+        cursor: pointer;
+        padding: 4px 12px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+      }
+      .modal-close:hover {
+        background: var(--scada-red);
+        border-color: var(--scada-red);
+        color: #fff;
+      }
+      .modal-section {
+        margin: 16px 0;
+        padding: 12px;
+        background: rgba(0, 0, 0, 0.3);
+        border-left: 3px solid var(--scada-blue);
+      }
+      .modal-section-title {
+        color: var(--scada-blue);
+        font-size: 13px;
+        font-weight: bold;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+      }
+      .modal-section-content {
+        color: #aaa;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .modal-data-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(51, 51, 51, 0.5);
+      }
+      .modal-data-label {
+        color: var(--scada-yellow);
+        font-weight: bold;
+        font-size: 12px;
+      }
+      .modal-data-value {
+        color: var(--text-strong);
+        font-size: 12px;
+      }
+      .modal-source-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        background: rgba(0, 170, 255, 0.2);
+        color: var(--scada-blue);
+        border: 1px solid var(--scada-blue);
+        border-radius: 3px;
+        font-size: 9px;
+        margin: 2px;
+      }
+      .donate-modal .modal-content {
+        max-width: 760px;
+      }
+      .donate-hero {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 16px;
+        align-items: center;
+      }
+      .donate-hero p {
+        margin: 6px 0;
+        color: var(--text-muted);
+      }
+      .donate-frame {
+        width: 100%;
+        min-height: 440px;
+        border: 1px solid rgba(0, 255, 136, 0.3);
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.4);
+        overflow: hidden;
+        box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.6);
+      }
+      .donate-frame iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+      }
+      .donate-note {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 8px;
+      }
+      .donate-link {
+        color: var(--scada-blue);
+        text-decoration: none;
+        border-bottom: 1px dashed rgba(0, 170, 255, 0.6);
+      }
+      .donate-link:hover {
+        color: var(--scada-green);
+        border-bottom-color: rgba(0, 255, 0, 0.6);
+      }
+      @media (max-width: 900px) {
+        .donate-hero {
+          grid-template-columns: 1fr;
+        }
+      }
+      .helper-banner {
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid var(--scada-border);
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      @media (max-width: 1200px) {
+        .grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .half-width {
+          grid-column: span 2;
+        }
+      }
+
+      @media (max-width: 800px) {
+        body {
+          padding: 10px;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .half-width,
+        .full-width {
+          grid-column: 1 / -1;
+        }
+        .header {
+          padding: 10px 14px;
+          align-items: flex-start;
+        }
+        .header h1 {
+          font-size: 18px;
+        }
+        .card {
+          padding: 14px;
+        }
+        .gauge-container {
+          height: 180px;
+        }
+        .circular-gauge {
+          width: 150px;
+          height: 150px;
+        }
+        .gauge-value {
+          font-size: 40px;
+        }
+        .indicator-value {
+          font-size: 24px;
+        }
+        .chart-container {
+          height: 140px;
+        }
+        .map-container {
+          height: 240px;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .header h1 {
+          font-size: 16px;
+        }
+        .card-title {
+          font-size: 12px;
+        }
+        .gauge-value {
+          font-size: 36px;
+        }
+        .indicator-value {
+          font-size: 22px;
+        }
+        .signal-list li {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .signal-value {
+          align-self: flex-end;
+        }
+      }
+
+      /* UX refresh overrides */
+      :root {
+        --scada-green: #16a34a;
+        --scada-yellow: #f59e0b;
+        --scada-red: #dc2626;
+        --scada-blue: #2563eb;
+        --scada-bg: #f6f7fb;
+        --scada-panel: #ffffff;
+        --scada-border: #e2e8f0;
+        --text-primary: #0f172a;
+        --text-muted: #64748b;
+        --text-strong: #111827;
+      }
+      body {
+        background: var(--scada-bg);
+        color: var(--text-primary);
+        font-size: 15px;
+        line-height: 1.6;
+      }
+      a {
+        color: var(--scada-blue);
+      }
+      :focus-visible {
+        outline: 2px solid var(--scada-blue);
+        outline-offset: 2px;
+      }
+      .header {
+        background: var(--scada-panel);
+        border: 1px solid var(--scada-border);
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+      }
+      .header h1 {
+        color: var(--text-strong);
+        text-shadow: none;
+        letter-spacing: 0;
+      }
+      .status-dot {
+        box-shadow: none;
+        animation: none;
+      }
+      .donate-button {
+        font-size: clamp(11px, 1.4vw, 13px);
+        font-family: inherit;
+        font-weight: 700;
+        padding: 3px;
+        border-radius: 999px;
+        cursor: pointer;
+        border: none;
+        color: var(--text-strong);
+        background: linear-gradient(
+          180deg,
+          #e2e8f0 0%,
+          #e2e8f0 45%,
+          #2563eb 45%,
+          #2563eb 100%
+        );
+        box-shadow:
+          rgba(15, 23, 42, 0.12) 0px 18px 24px -10px,
+          rgba(15, 23, 42, 0.08) 0px 10px 10px -8px;
+        transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+      }
+      .donate-button:active {
+        transform: translateY(2px);
+        box-shadow:
+          rgba(15, 23, 42, 0.12) 0px 12px 18px -10px,
+          rgba(15, 23, 42, 0.08) 0px 8px 8px -8px;
+      }
+      .donate-button .button-content {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #ffffff;
+        padding: 0.55em 1.15em 0.55em 0.95em;
+        border-radius: 999px;
+      }
+      .donate-button svg {
+        width: clamp(14px, 1.8vw, 18px);
+        height: clamp(14px, 1.8vw, 18px);
+        color: #ef4444;
+        transition: transform 0.3s ease;
+      }
+      .donate-button:hover svg {
+        transform: scale(1.15);
+      }
+      .card {
+        background: var(--scada-panel);
+        border: 1px solid var(--scada-border);
+        border-radius: 12px;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+      }
+      .card:hover {
+        border-color: #cbd5f5;
+        box-shadow: 0 10px 26px rgba(15, 23, 42, 0.12);
+      }
+      .card::before {
+        content: none;
+      }
+      .card-title {
+        color: #334155;
+        text-transform: none;
+        letter-spacing: 0;
+        border-bottom: 1px solid var(--scada-border);
+      }
+      .gauge-fill {
+        filter: none;
+      }
+      .gauge-value {
+        text-shadow: none;
+      }
+      .gauge-value.low,
+      .gauge-value.medium,
+      .gauge-value.high,
+      .gauge-value.critical {
+        text-shadow: none;
+      }
+      .indicator-value {
+        color: var(--scada-blue);
+        text-shadow: none;
+      }
+      .chart-container {
+        background: #f8fafc;
+        border: 1px solid var(--scada-border);
+      }
+      .chart-container canvas {
+        filter: none;
+      }
+      .chart-container::after {
+        display: none;
+      }
+      .map-container {
+        background: #ffffff;
+        border: 1px solid var(--scada-border);
+      }
+      .map-filters {
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid var(--scada-border);
+        color: var(--text-primary);
+      }
+      .map-filters input[type="checkbox"] {
+        accent-color: var(--scada-blue);
+      }
+      .signal-list li {
+        border-bottom: 1px solid var(--scada-border);
+      }
+      .signal-list li:hover {
+        background: #f1f5f9;
+      }
+      .signal-name {
+        color: var(--scada-blue);
+      }
+      .signal-value {
+        color: var(--scada-green);
+      }
+      .indicator.active {
+        box-shadow: none;
+        animation: none;
+      }
+      .analysis-panel {
+        background: #f8fafc;
+        border: 1px solid var(--scada-border);
+        color: var(--text-primary);
+        scrollbar-color: #cbd5f5 transparent;
+      }
+      .analysis-panel::-webkit-scrollbar-thumb {
+        background: #cbd5f5;
+      }
+      .analysis-summary {
+        color: #1f2937;
+        text-shadow: none;
+      }
+      .analysis-details {
+        color: var(--text-muted);
+      }
+      .analysis-details::before {
+        color: var(--scada-blue);
+      }
+      .analysis-details:hover {
+        color: inherit;
+      }
+      .analysis-recommendation {
+        color: var(--scada-yellow);
+        text-shadow: none;
+      }
+      .risk-badge-large {
+        border-width: 1px;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+      .risk-badge-large.low,
+      .risk-badge-large.medium,
+      .risk-badge-large.high,
+      .risk-badge-large.critical {
+        box-shadow: none;
+      }
+      .risk-badge-large.critical {
+        animation: none;
+      }
+      .info-button {
+        background: #eef2ff;
+        color: var(--scada-blue);
+        border: 1px solid #c7d2fe;
+      }
+      .info-button:hover {
+        background: var(--scada-blue);
+        border-color: var(--scada-blue);
+        color: #ffffff;
+        transform: none;
+        box-shadow: none;
+      }
+      .modal-overlay {
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(2px);
+      }
+      .modal-content {
+        background: #ffffff;
+        border: 1px solid var(--scada-border);
+        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.2);
+      }
+      .modal-header {
+        border-bottom: 1px solid var(--scada-border);
+      }
+      .modal-title {
+        color: var(--text-strong);
+        text-transform: none;
+        letter-spacing: 0;
+      }
+      .modal-close {
+        border: 1px solid var(--scada-border);
+        color: var(--text-primary);
+      }
+      .modal-close:hover {
+        background: #fee2e2;
+        border-color: #fecaca;
+        color: #991b1b;
+      }
+      .modal-section {
+        background: #f8fafc;
+        border-left: 3px solid var(--scada-blue);
+      }
+      .modal-section-title {
+        color: #334155;
+        text-transform: none;
+      }
+      .modal-section-content {
+        color: var(--text-primary);
+      }
+      .modal-data-label {
+        color: #475569;
+      }
+      .modal-source-badge {
+        background: #eff6ff;
+        color: var(--scada-blue);
+        border: 1px solid #bfdbfe;
+      }
+      .donate-frame {
+        border: 1px solid var(--scada-border);
+        border-radius: 12px;
+        background: #ffffff;
+        box-shadow: none;
+      }
+      .donate-link:hover {
+        color: var(--scada-blue);
+        border-bottom-color: rgba(37, 99, 235, 0.6);
+      }
+      .helper-banner {
+        background: #ffffff;
+        border: 1px solid var(--scada-border);
+        color: var(--text-muted);
+      }
+      .translate-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #eef2ff;
+        border: 1px solid #c7d2fe;
+        color: #1d4ed8;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 8px 12px;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+      }
+      .translate-button:hover {
+        background: #e0e7ff;
+        border-color: #a5b4fc;
+        color: #1e40af;
+      }
+      html[dir="rtl"] body {
+        direction: rtl;
+      }
+      html[dir="rtl"] .header {
+        flex-direction: row-reverse;
+      }
+      html[dir="rtl"] .header-actions {
+        justify-content: flex-start;
+      }
+      html[dir="rtl"] .status-bar {
+        flex-direction: row-reverse;
+      }
+      html[dir="rtl"] .card-title {
+        text-align: right;
+      }
+      html[dir="rtl"] .analysis-details {
+        padding-left: 0;
+        padding-right: 12px;
+      }
+      html[dir="rtl"] .analysis-details::before {
+        left: auto;
+        right: 0;
+      }
+      html[dir="rtl"] .modal-data-item {
+        flex-direction: row-reverse;
+      }
+      html[dir="rtl"] .modal-data-label,
+      html[dir="rtl"] .modal-data-value {
+        text-align: right;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1 data-i18n="title">Strike Risk Monitoring System</h1>
+      <div class="header-actions">
+        <div class="status-bar">
+          <div class="status-item">
+            <div class="status-dot"></div>
+            <span data-i18n="live">LIVE</span>
+          </div>
+          <div class="status-item">
+            <span id="system-time">--:--:--</span>
+          </div>
+          <div class="status-item">
+            <span id="last-update">UPD: --:--:--</span>
+          </div>
+          <div class="status-item" id="data-status" style="display: none; color: var(--scada-yellow); font-size: 11px;">
+            ⚠️ SIMULATION MODE - Data sources may not be connected
+          </div>
+        </div>
+        <button class="translate-button" id="lang-toggle" type="button" aria-label="Switch language">
+          עברית
+        </button>
+        <button class="donate-button" id="donate-button" type="button" onclick="openDonateModal()" aria-label="Support">
+          <span class="button-content">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path fill="none" d="M0 0H24V24H0z"></path>
+              <path
+                fill="currentColor"
+                d="M12.001 4.529c2.349-2.109 5.979-2.039 8.242.228 2.262 2.268 2.34 5.88.236 8.236l-8.48 8.492-8.478-8.492c-2.104-2.356-2.025-5.974.236-8.236 2.265-2.264 5.888-2.34 8.244-.228z"
+              ></path>
+            </svg>
+            <span data-i18n="supportButton">Support / Donation</span>
+          </span>
+        </button>
+      </div>
+    </div>
+    <div class="helper-banner" data-i18n-html="helperBanner">Tap the blue <strong>i</strong> button on any indicator to see expanded details.</div>
+
+    <div class="grid">
+      <!-- Main Risk Gauge -->
+      <div class="card">
+        <div class="card-title" data-i18n="mainRiskTitle">US Strike on Iran Probability</div>
+        <div class="gauge-container">
+          <div class="circular-gauge">
+            <svg class="gauge-svg" viewBox="0 0 180 180">
+              <circle class="gauge-track" cx="90" cy="90" r="75"></circle>
+              <circle class="gauge-fill" id="gauge-fill" cx="90" cy="90" r="75"></circle>
+            </svg>
+            <div class="gauge-value" id="score">--%</div>
+          </div>
+          <div class="risk-badge-large" id="risk-badge" data-i18n="riskLow">LOW RISK</div>
+        </div>
+        <div class="metric-label" style="margin-top: 8px;" data-i18n="tacticalAlert">Tactical Alert Level</div>
+        <div class="timestamp" id="score-updated" style="margin-top: 4px;">Updated: --:--:--</div>
+        <div class="timestamp" id="projected-risk" style="margin-top: 8px; color: var(--scada-blue);" data-i18n="projectedRiskPrefix">Projected Risk: Next 8 Hours →</div>
+      </div>
+
+      <!-- Risk Trend -->
+      <div class="card">
+        <div class="card-title" data-i18n="trendTitle">8-Hour Trend</div>
+        <div class="chart-container">
+          <canvas id="trend-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- News Intel -->
+      <div class="card">
+        <div class="card-title"><span data-i18n="newsTitle">News Intel (30%)</span><button class="info-button" type="button" data-i18n-key="moreDetails" data-i18n-attr="aria-label,title" aria-label="More details" title="More details" onclick="showInfoModal('newsIntel')">i</button></div>
+        <div class="indicator-value" id="news-value">--%</div>
+        <div class="chart-container">
+          <canvas id="news-chart"></canvas>
+        </div>
+        <div class="analysis-panel" id="news-analysis"></div>
+      </div>
+
+      <!-- Public Interest -->
+      <div class="card">
+        <div class="card-title"><span data-i18n="publicTitle">Public Interest (20%)</span><button class="info-button" type="button" data-i18n-key="moreDetails" data-i18n-attr="aria-label,title" aria-label="More details" title="More details" onclick="showInfoModal('publicInterest')">i</button></div>
+        <div class="indicator-value" id="interest-value">--%</div>
+        <div class="chart-container">
+          <canvas id="interest-chart"></canvas>
+        </div>
+        <div class="analysis-panel" id="interest-analysis"></div>
+      </div>
+
+      <!-- Civil Aviation -->
+      <div class="card">
+        <div class="card-title"><span data-i18n="civilTitle">Civil Aviation (15%)</span><button class="info-button" type="button" data-i18n-key="moreDetails" data-i18n-attr="aria-label,title" aria-label="More details" title="More details" onclick="showInfoModal('civilAviation')">i</button></div>
+        <div class="indicator-value" id="aviation-value">--%</div>
+        <div class="chart-container">
+          <canvas id="aviation-chart"></canvas>
+        </div>
+        <div class="analysis-panel" id="aviation-analysis"></div>
+      </div>
+
+      <!-- Military Tankers -->
+      <div class="card">
+        <div class="card-title"><span data-i18n="tankersTitle">Military Tankers (10%)</span><button class="info-button" type="button" data-i18n-key="moreDetails" data-i18n-attr="aria-label,title" aria-label="More details" title="More details" onclick="showInfoModal('militaryTankers')">i</button></div>
+        <div class="indicator-value" id="tankers-value">--%</div>
+        <div class="chart-container">
+          <canvas id="tankers-chart"></canvas>
+        </div>
+        <div class="analysis-panel" id="tankers-analysis"></div>
+      </div>
+
+      <!-- Market Odds -->
+      <div class="card">
+        <div class="card-title"><span data-i18n="marketsTitle">Market Odds (10%)</span><button class="info-button" type="button" data-i18n-key="moreDetails" data-i18n-attr="aria-label,title" aria-label="More details" title="More details" onclick="showInfoModal('markets')">i</button></div>
+        <div class="indicator-value" id="markets-value">--%</div>
+        <div class="chart-container">
+          <canvas id="markets-chart"></canvas>
+        </div>
+        <div class="analysis-panel" id="markets-analysis"></div>
+      </div>
+
+      <!-- Pizza Meter -->
+      <div class="card">
+        <div class="card-title"><span data-i18n="pizzaTitle">Pentagon Pizza (10%)</span><button class="info-button" type="button" data-i18n-key="moreDetails" data-i18n-attr="aria-label,title" aria-label="More details" title="More details" onclick="showInfoModal('pizza')">i</button></div>
+        <div class="indicator-value" id="pizza-value">--%</div>
+        <div class="chart-container">
+          <canvas id="pizza-chart"></canvas>
+        </div>
+        <div class="analysis-panel" id="pizza-analysis"></div>
+      </div>
+
+      <!-- Weather -->
+      <div class="card">
+        <div class="card-title"><span data-i18n="weatherTitle">Weather (5%)</span><button class="info-button" type="button" data-i18n-key="moreDetails" data-i18n-attr="aria-label,title" aria-label="More details" title="More details" onclick="showInfoModal('weather')">i</button></div>
+        <div class="indicator-value" id="weather-value">--%</div>
+        <div class="chart-container">
+          <canvas id="weather-chart"></canvas>
+        </div>
+        <div class="analysis-panel" id="weather-analysis"></div>
+      </div>
+
+      <!-- Map -->
+      <div class="card full-width">
+        <div class="card-title" data-i18n="mapTitle">Regional Activity Map</div>
+        <div class="map-container" id="map"></div>
+      </div>
+
+      <!-- Signals Feed -->
+      <div class="card half-width">
+        <div class="card-title" data-i18n="signalsTitle">Live Signals Feed</div>
+        <ul class="signal-list" id="signals"></ul>
+      </div>
+
+      <!-- Rules & Alerts -->
+      <div class="card half-width">
+        <div class="card-title" data-i18n="rulesTitle">Active Rules & Alerts</div>
+        <ul class="signal-list" id="rules"></ul>
+      </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div class="modal-overlay" id="info-modal" onclick="closeInfoModal(event)">
+      <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <div class="modal-title" id="modal-title" data-i18n="infoTitle">Indicator Information</div>
+          <button class="modal-close" onclick="closeInfoModal()">✕</button>
+        </div>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
+    <!-- Donate Modal -->
+    <div class="modal-overlay donate-modal" id="donate-modal" onclick="closeDonateModal(event)">
+      <div class="modal-content" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="donate-title">
+        <div class="modal-header">
+          <div class="modal-title" id="donate-title" data-i18n="donateTitle">Support the Project / Donation</div>
+          <button class="modal-close" onclick="closeDonateModal()">✕</button>
+        </div>
+        <div class="donate-hero">
+          <div>
+            <p data-i18n="donateDescPrimary">Secure donation to keep the platform running and expanding.</p>
+            <p data-i18n="donateDescSecondary">Professional, secure support to improve the system and maintain infrastructure.</p>
+            <div class="donate-note" id="donate-status" data-i18n="donateStatus">
+              Secure payment via Stripe. If the window doesn't load, you can open a new payment page.
+            </div>
+            <div class="donate-note">
+              <a class="donate-link" id="donate-link" href="#" target="_blank" rel="noopener" data-i18n="donateLink">Open secure payment page</a>
+            </div>
+          </div>
+          <div class="donate-frame">
+            <iframe id="donate-frame" title="Secure donation form" loading="lazy"></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Chart.js defaults for SCADA style
+      Chart.defaults.color = "#00ff00";
+      Chart.defaults.borderColor = "#333333";
+      Chart.defaults.backgroundColor = "rgba(0, 255, 0, 0.1)";
+
+      // Donation checkout (replace with your Stripe/PayPal payment link)
+      const DONATE_URL = "https://donate.stripe.com/test_5kQ3cvf4w60n79q8R1gjC00";
+
+      const I18N = {
+        en: {
+          title: "Strike Risk Monitoring System",
+          live: "LIVE",
+          supportButton: "Support / Donation",
+          supportAria: "Support",
+          helperBanner: "Tap the blue <strong>i</strong> button on any indicator to see expanded details.",
+          mainRiskTitle: "US Strike on Iran Probability",
+          riskLow: "LOW RISK",
+          riskMedium: "MEDIUM RISK",
+          riskHigh: "HIGH RISK",
+          riskCritical: "CRITICAL RISK",
+          tacticalAlert: "Tactical Alert Level",
+          updated: "Updated",
+          updatedShort: "UPD",
+          projectedRiskPrefix: "Projected Risk: Next 8 Hours →",
+          mapRiskLabel: "Risk",
+          mapFilterMilitary: "Verified military",
+          mapFilterCivil: "Other/unknown",
+          mapFilterGlobal: "Global",
+          mapTankerActivity: "Tanker Activity",
+          mapPersianGulf: "Persian Gulf",
+          aircraftUnknown: "Unknown",
+          aircraftIcao: "ICAO",
+          aircraftSource: "Source",
+          aircraftOrigin: "Origin",
+          aircraftCategory: "Category",
+          aircraftClassification: "Classification",
+          aircraftAltitude: "Altitude",
+          aircraftSpeed: "Speed",
+          aircraftHeading: "Heading",
+          aircraftOnGround: "On ground",
+          aircraftYes: "Yes",
+          aircraftNo: "No",
+          aircraftVerifiedMilitary: "Verified military",
+          aircraftUnknownOther: "Unknown/other",
+          trendTitle: "8-Hour Trend",
+          newsTitle: "News Intel (30%)",
+          publicTitle: "Public Interest (20%)",
+          civilTitle: "Civil Aviation (15%)",
+          tankersTitle: "Military Tankers (10%)",
+          marketsTitle: "Market Odds (10%)",
+          pizzaTitle: "Pentagon Pizza (10%)",
+          weatherTitle: "Weather (5%)",
+          mapTitle: "Regional Activity Map",
+          signalsTitle: "Live Signals Feed",
+          rulesTitle: "Active Rules & Alerts",
+          infoTitle: "Indicator Information",
+          donateTitle: "Support the Project / Donation",
+          donateDescPrimary: "Secure donation to keep the platform running and expanding.",
+          donateDescSecondary: "Professional, secure support to improve the system and maintain infrastructure.",
+          donateStatus: "Secure payment via Stripe. If the window doesn't load, you can open a new payment page.",
+          donateLink: "Open secure payment page",
+          donateAlert: "Update the payment URL in the code to start accepting donations.",
+          moreDetails: "More details",
+          analysisHint: "More details available in the info button above.",
+          noActiveRules: "No active rules",
+          notAvailable: "N/A",
+          simulationMode: "SIMULATION MODE - Data sources may not be connected",
+          liveData: "LIVE DATA - Real-time monitoring active",
+          trendIncreasing: "↗ Increasing",
+          trendDecreasing: "↘ Decreasing",
+          trendStable: "→ Stable",
+          modalDescription: "Description",
+          modalCurrentStatus: "Current Status",
+          modalRawData: "Raw Data",
+          modalCurrentValue: "Current Value",
+          modalRiskLevel: "Risk Level",
+          modalTrend: "Trend",
+          modalWeight: "Weight in Score",
+          modalConfidence: "Confidence",
+          modalAnalysis: "Analysis",
+          modalRecommendation: "Recommendation",
+          modalDataSource: "Data Source",
+          modalSourceLabel: "Source",
+          modalApiKey: "API Key",
+          modalSummary: "Summary",
+          rawArticlesFound: "Articles Found",
+          rawUrgentTone: "Urgent Tone",
+          rawActiveOutlets: "Active Outlets",
+          rawSearchQuery: "Search Query",
+          rawWikipediaSpike: "Wikipedia Spike",
+          rawWikipediaViews: "Wikipedia Views",
+          rawPagesMonitored: "Pages Monitored",
+          rawGdeltArticles: "GDELT Articles",
+          rawGdeltSentiment: "GDELT Sentiment",
+          rawPolymarketMarkets: "Polymarket Markets",
+          rawTopPolymarketMarkets: "Top Polymarket Markets",
+          rawAirportsMonitored: "Airports Monitored",
+          rawSearchAreas: "Search Areas",
+          rawLocations: "Locations",
+          rawDetectedTankers: "Detected Tankers",
+          rawMarketProbability: "Market Probability",
+          rawWeatherVisibility: "Visibility",
+          rawWeatherClouds: "Cloud Cover",
+          rawWeatherSummary: "Weather Summary",
+          rawSignalCount: "Signal Count",
+          rawLastUpdate: "Last Update",
+          rawDataSources: "Data Sources",
+          noAnalysis: "No analysis available",
+          indicatorMonitoring: "Indicator monitoring system",
+          unknownLabel: "Unknown",
+          loading: "Loading data..."
+        },
+        he: {
+          title: "מערכת ניטור סיכון תקיפה",
+          live: "שידור חי",
+          supportButton: "תמיכה / תרומה",
+          supportAria: "תמיכה",
+          helperBanner: "לחצו על כפתור <strong>i</strong> הכחול בכל מדד כדי לראות פירוט מורחב.",
+          mainRiskTitle: "הסתברות לתקיפה אמריקאית באיראן",
+          riskLow: "סיכון נמוך",
+          riskMedium: "סיכון בינוני",
+          riskHigh: "סיכון גבוה",
+          riskCritical: "סיכון קריטי",
+          tacticalAlert: "רמת התראה טקטית",
+          updated: "עודכן",
+          updatedShort: "עדכון",
+          projectedRiskPrefix: "סיכון חזוי: 8 השעות הקרובות →",
+          mapRiskLabel: "סיכון",
+          mapFilterMilitary: "צבאי מאומת",
+          mapFilterCivil: "אחר/לא ידוע",
+          mapFilterGlobal: "גלובלי",
+          mapTankerActivity: "פעילות מתדלקים",
+          mapPersianGulf: "המפרץ הפרסי",
+          aircraftUnknown: "לא ידוע",
+          aircraftIcao: "ICAO",
+          aircraftSource: "מקור",
+          aircraftOrigin: "מדינת מקור",
+          aircraftCategory: "קטגוריה",
+          aircraftClassification: "סיווג",
+          aircraftAltitude: "גובה",
+          aircraftSpeed: "מהירות",
+          aircraftHeading: "כיוון",
+          aircraftOnGround: "על הקרקע",
+          aircraftYes: "כן",
+          aircraftNo: "לא",
+          aircraftVerifiedMilitary: "צבאי מאומת",
+          aircraftUnknownOther: "לא ידוע/אחר",
+          trendTitle: "מגמת 8 שעות",
+          newsTitle: "מודיעין חדשות (30%)",
+          publicTitle: "עניין ציבורי (20%)",
+          civilTitle: "תעופה אזרחית (15%)",
+          tankersTitle: "מתדלקים צבאיים (10%)",
+          marketsTitle: "סיכויי שוק (10%)",
+          pizzaTitle: "פיצה בפנטגון (10%)",
+          weatherTitle: "מזג אוויר (5%)",
+          mapTitle: "מפת פעילות אזורית",
+          signalsTitle: "זרם אותות חי",
+          rulesTitle: "חוקים והתראות פעילים",
+          infoTitle: "מידע על המדד",
+          donateTitle: "תמיכה בפרויקט / תרומה",
+          donateDescPrimary: "תרומה מאובטחת שתסייע להמשיך לפתח ולהרחיב את המערכת.",
+          donateDescSecondary: "תמיכה מקצועית ובטוחה לשיפור השירות ותחזוקת התשתיות.",
+          donateStatus: "תשלום מאובטח באמצעות Stripe. אם החלון לא נטען, ניתן לפתוח דף תשלום חדש.",
+          donateLink: "פתיחת דף תשלום מאובטח",
+          donateAlert: "עדכן את כתובת התשלום בקוד כדי להתחיל לקבל תרומות.",
+          moreDetails: "פרטים נוספים",
+          analysisHint: "קיימים פרטים נוספים בכפתור המידע למעלה.",
+          noActiveRules: "אין חוקים פעילים",
+          notAvailable: "לא זמין",
+          simulationMode: "מצב סימולציה - ייתכן שמקורות הנתונים אינם מחוברים",
+          liveData: "נתונים חיים - ניטור בזמן אמת פעיל",
+          trendIncreasing: "↗ בעלייה",
+          trendDecreasing: "↘ בירידה",
+          trendStable: "→ יציב",
+          modalDescription: "תיאור",
+          modalCurrentStatus: "סטטוס נוכחי",
+          modalRawData: "נתונים גולמיים",
+          modalCurrentValue: "ערך נוכחי",
+          modalRiskLevel: "רמת סיכון",
+          modalTrend: "מגמה",
+          modalWeight: "משקל במדד",
+          modalConfidence: "רמת ביטחון",
+          modalAnalysis: "ניתוח",
+          modalRecommendation: "המלצה",
+          modalDataSource: "מקור נתונים",
+          modalSourceLabel: "מקור",
+          modalApiKey: "מפתח API",
+          modalSummary: "סיכום",
+          rawArticlesFound: "מאמרים שנמצאו",
+          rawUrgentTone: "טון דחוף",
+          rawActiveOutlets: "מקורות פעילים",
+          rawSearchQuery: "שאילתת חיפוש",
+          rawWikipediaSpike: "קפיצה בוויקיפדיה",
+          rawWikipediaViews: "צפיות בוויקיפדיה",
+          rawPagesMonitored: "עמודים במעקב",
+          rawGdeltArticles: "מאמרי GDELT",
+          rawGdeltSentiment: "סנטימנט GDELT",
+          rawPolymarketMarkets: "שוקי Polymarket",
+          rawTopPolymarketMarkets: "שוקי Polymarket מובילים",
+          rawAirportsMonitored: "שדות תעופה במעקב",
+          rawSearchAreas: "אזורי חיפוש",
+          rawLocations: "מיקומים",
+          rawDetectedTankers: "מתדלקים שזוהו",
+          rawMarketProbability: "הסתברות בשוק",
+          rawWeatherVisibility: "ראות",
+          rawWeatherClouds: "כיסוי עננים",
+          rawWeatherSummary: "סיכום מזג אוויר",
+          rawSignalCount: "מספר אותות",
+          rawLastUpdate: "עדכון אחרון",
+          rawDataSources: "מקורות נתונים",
+          noAnalysis: "אין ניתוח זמין",
+          indicatorMonitoring: "מערכת ניטור מדדים",
+          unknownLabel: "לא ידוע",
+          loading: "טוען נתונים..."
+        }
+      };
+
+      const SIGNAL_LABELS = {
+        en: {
+          newsIntel: "News Intel",
+          publicInterest: "Public Interest",
+          civilAviation: "Civil Aviation",
+          militaryTankers: "Military Tankers",
+          markets: "Market Odds",
+          pizza: "Pentagon Pizza",
+          weather: "Weather",
+          custom: "Custom"
+        },
+        he: {
+          newsIntel: "מודיעין חדשות",
+          publicInterest: "עניין ציבורי",
+          civilAviation: "תעופה אזרחית",
+          militaryTankers: "מתדלקים צבאיים",
+          markets: "סיכויי שוק",
+          pizza: "פיצה בפנטגון",
+          weather: "מזג אוויר",
+          custom: "מותאם אישית"
+        }
+      };
+
+      let currentLang = localStorage.getItem("lang") || "en";
+
+      function t(key) {
+        return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key;
+      }
+
+      function riskLabelFromLevel(level) {
+        switch ((level || "").toLowerCase()) {
+          case "critical":
+            return t("riskCritical");
+          case "high":
+            return t("riskHigh");
+          case "medium":
+            return t("riskMedium");
+          case "low":
+            return t("riskLow");
+          default:
+            return (level || "").toUpperCase();
+        }
+      }
+
+      function updateLanguageToggle() {
+        const langToggle = document.getElementById("lang-toggle");
+        if (!langToggle) return;
+        const isHebrew = currentLang === "he";
+        langToggle.textContent = isHebrew ? "English" : "עברית";
+        langToggle.setAttribute("aria-label", isHebrew ? "Switch to English" : "החלפה לאנגלית");
+      }
+
+      function updateI18n() {
+        document.querySelectorAll("[data-i18n]").forEach((el) => {
+          const key = el.getAttribute("data-i18n");
+          if (key) el.textContent = t(key);
+        });
+        document.querySelectorAll("[data-i18n-html]").forEach((el) => {
+          const key = el.getAttribute("data-i18n-html");
+          if (key) el.innerHTML = t(key);
+        });
+        document.querySelectorAll("[data-i18n-attr]").forEach((el) => {
+          const attrs = el.getAttribute("data-i18n-attr").split(",");
+          const key = el.getAttribute("data-i18n-key") || el.getAttribute("data-i18n");
+          if (!key) return;
+          attrs.forEach((attr) => el.setAttribute(attr.trim(), t(key)));
+        });
+        document.title = t("title");
+        const donateButton = document.getElementById("donate-button");
+        if (donateButton) donateButton.setAttribute("aria-label", t("supportAria"));
+        const scoreUpdated = document.getElementById("score-updated");
+        if (scoreUpdated && scoreUpdated.textContent.includes("--:--:--")) {
+          scoreUpdated.textContent = `${t("updated")}: --:--:--`;
+        }
+        const lastUpdate = document.getElementById("last-update");
+        if (lastUpdate && lastUpdate.textContent.includes("--:--:--")) {
+          lastUpdate.textContent = `${t("updatedShort")}: --:--:--`;
+        }
+        updateLanguageToggle();
+      }
+
+      function setLang(lang) {
+        currentLang = lang === "he" ? "he" : "en";
+        localStorage.setItem("lang", currentLang);
+        document.documentElement.lang = currentLang;
+        document.documentElement.dir = currentLang === "he" ? "rtl" : "ltr";
+        updateI18n();
+        if (typeof mountMapFilters === "function") {
+          mountMapFilters();
+        }
+        if (typeof refresh === "function") {
+          refresh();
+        }
+        const infoModal = document.getElementById("info-modal");
+        if (infoModal && infoModal.classList.contains("active") && currentIndicatorType) {
+          showInfoModal(currentIndicatorType);
+        }
+      }
+
+      // Color helpers for gradients that work with hex colors
+      function hexToRgba(hex, alpha) {
+        const clean = hex.replace("#", "");
+        if (clean.length !== 6) return hex;
+        const r = parseInt(clean.slice(0, 2), 16);
+        const g = parseInt(clean.slice(2, 4), 16);
+        const b = parseInt(clean.slice(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+
+      function createGradient(ctx, color) {
+        if (!ctx) return color;
+        const gradient = ctx.createLinearGradient(0, 0, 0, 120);
+        gradient.addColorStop(0, hexToRgba(color, 0.6));
+        gradient.addColorStop(1, hexToRgba(color, 0.05));
+        return gradient;
+      }
+
+      const chartConfig = (ctx, color) => ({
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [
+            {
+              data: [],
+              borderColor: color,
+              backgroundColor: createGradient(ctx, color),
+              fill: true,
+              tension: 0.35,
+              pointRadius: 0,
+              pointHoverRadius: 3,
+              borderWidth: 2,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            duration: 800,
+            easing: "easeOutQuart"
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { 
+              enabled: true,
+              backgroundColor: "rgba(0, 0, 0, 0.8)",
+              borderColor: color,
+              borderWidth: 1,
+              titleColor: "#00ff00",
+              bodyColor: color,
+              padding: 8,
+              displayColors: false
+            }
+          },
+          scales: {
+            x: {
+              display: true,
+              grid: {
+                color: "rgba(0, 255, 0, 0.05)",
+                lineWidth: 1,
+              },
+              ticks: {
+                display: false,
+                maxTicksLimit: 10,
+              },
+            },
+            y: {
+              display: true,
+              min: 0,
+              max: 1,
+              grid: {
+                color: "rgba(0, 255, 0, 0.1)",
+                lineWidth: 1,
+              },
+              ticks: {
+                color: "#666",
+                font: { size: 8 },
+                stepSize: 0.2,
+                callback: function(value) {
+                  return Math.round(value * 100) + "%";
+                }
+              },
+            },
+          },
+          elements: {
+            point: {
+              radius: 0,
+              hoverRadius: 4,
+              borderWidth: 0,
+            },
+            line: {
+              borderWidth: 2,
+              borderColor: color,
+              tension: 0.35,
+              fill: true,
+            },
+          },
+        },
+      });
+
+      // Data history for charts
+      const history = {
+        trend: [],
+        news: [],
+        interest: [],
+        aviation: [],
+        tankers: [],
+        markets: [],
+        pizza: [],
+        weather: []
+      };
+
+      // Initialize charts with proper gradients
+      const chartCanvases = {
+        trend: document.getElementById("trend-chart"),
+        news: document.getElementById("news-chart"),
+        interest: document.getElementById("interest-chart"),
+        aviation: document.getElementById("aviation-chart"),
+        tankers: document.getElementById("tankers-chart"),
+        markets: document.getElementById("markets-chart"),
+        pizza: document.getElementById("pizza-chart"),
+        weather: document.getElementById("weather-chart"),
+      };
+
+      const charts = {};
+      const chartColors = {
+        trend: "#00ff00",
+        news: "#00aaff",
+        interest: "#ffff00",
+        aviation: "#ff8800",
+        tankers: "#ff0000",
+        markets: "#ff00ff",
+        pizza: "#00ffff",
+        weather: "#8888ff",
+      };
+
+      // Initialize each chart with gradient and initial data
+      Object.keys(chartCanvases).forEach((name) => {
+        const canvas = chartCanvases[name];
+        if (!canvas) {
+          console.error(`[chart] Canvas not found for ${name}`);
+          return;
+        }
+        const ctx = canvas.getContext("2d");
+        const color = chartColors[name];
+        charts[name] = new Chart(ctx, chartConfig(ctx, color));
+        
+        // Initialize with some baseline data points for immediate visualization
+        const baselineValue = name === "trend" ? 0.3 : 0.2;
+        for (let i = 0; i < 10; i++) {
+          const val = baselineValue + (Math.random() - 0.5) * 0.1;
+          history[name].push(Math.max(0, Math.min(1, val)));
+        }
+        
+        // Update chart with initial data
+        charts[name].data.labels = history[name].map((_, i) => i);
+        charts[name].data.datasets[0].data = history[name];
+        charts[name].update("none");
+        
+        console.log(`[chart] Initialized ${name} chart with ${history[name].length} initial points`);
+      });
+
+      // Initialize map
+      const map = L.map("map", {
+        zoomControl: false,
+        attributionControl: false
+      }).setView([32.4279, 53.6880], 5); // Iran center
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 10,
+        tileSize: 256,
+        zoomOffset: 0
+      }).addTo(map);
+
+      // Add dynamic markers
+      let tehranMarker, gulfMarker;
+      const aircraftLayer = L.layerGroup().addTo(map);
+      let lastAircraftPayload = null;
+      const aircraftFilter = {
+        showMilitary: true,
+        showCivil: true,
+        scope: "global"
+      };
+
+      function mountMapFilters() {
+        const container = document.getElementById("map");
+        if (!container) return;
+        const existing = container.querySelector(".map-filters");
+        if (existing) {
+          existing.remove();
+        }
+        const filters = document.createElement("div");
+        filters.className = "map-filters";
+        filters.innerHTML = `
+          <label><input type="checkbox" id="filter-military" checked /> ${t("mapFilterMilitary")}</label>
+          <label><input type="checkbox" id="filter-civil" checked /> ${t("mapFilterCivil")}</label>
+          <label><input type="checkbox" id="filter-global" checked /> ${t("mapFilterGlobal")}</label>
+        `;
+        container.appendChild(filters);
+
+        const militaryInput = document.getElementById("filter-military");
+        const civilInput = document.getElementById("filter-civil");
+        const globalInput = document.getElementById("filter-global");
+        if (militaryInput) {
+          militaryInput.addEventListener("change", (e) => {
+            aircraftFilter.showMilitary = !!e.target.checked;
+            updateAircraftMarkers(lastAircraftPayload);
+          });
+        }
+        if (civilInput) {
+          civilInput.addEventListener("change", (e) => {
+            aircraftFilter.showCivil = !!e.target.checked;
+            updateAircraftMarkers(lastAircraftPayload);
+          });
+        }
+        if (globalInput) {
+          globalInput.addEventListener("change", (e) => {
+            aircraftFilter.scope = e.target.checked ? "global" : "regional";
+            refresh();
+          });
+        }
+      }
+      
+      function updateMapMarkers(score) {
+        const riskLevel = (score && score.overall) || 0;
+        const tehranColor = riskLevel > 0.7 ? "#ff0000" : riskLevel > 0.4 ? "#ffff00" : "#00ff00";
+        const tehranSize = Math.max(8, Math.min(20, 8 + riskLevel * 12));
+        
+        if (tehranMarker) {
+          map.removeLayer(tehranMarker);
+        }
+        
+        tehranMarker = L.marker([35.6892, 51.3890], {
+          icon: L.divIcon({
+            className: "custom-marker",
+            html: `<div style="background: ${tehranColor}; width: ${tehranSize}px; height: ${tehranSize}px; border-radius: 50%; box-shadow: 0 0 15px ${tehranColor}; animation: pulse 2s infinite;"></div>`,
+            iconSize: [tehranSize, tehranSize]
+          })
+        }).addTo(map).bindPopup(`Tehran<br>${t("mapRiskLabel")}: ${Math.round(riskLevel * 100)}%`);
+        
+        // Update Gulf marker based on tanker activity
+        const tankerActivity = (score && score.components && score.components.militaryTankers) || 0;
+        const gulfColor = tankerActivity > 0.5 ? "#ff8800" : "#ffff00";
+        
+        if (gulfMarker) {
+          map.removeLayer(gulfMarker);
+        }
+        
+        gulfMarker = L.marker([26.0, 52.0], {
+          icon: L.divIcon({
+            className: "custom-marker",
+            html: `<div style="background: ${gulfColor}; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 10px ${gulfColor};"></div>`,
+            iconSize: [12, 12]
+          })
+        }).addTo(map).bindPopup(`${t("mapPersianGulf")}<br>${t("mapTankerActivity")}: ${Math.round(tankerActivity * 100)}%`);
+      }
+
+      function updateAircraftMarkers(aircraftPayload) {
+        lastAircraftPayload = aircraftPayload;
+        const aircraft = Array.isArray(aircraftPayload)
+          ? aircraftPayload
+          : (aircraftPayload && aircraftPayload.aircraft) || [];
+
+        aircraftLayer.clearLayers();
+        if (!Array.isArray(aircraft) || aircraft.length === 0) return;
+
+        const maxMarkers = 200;
+        const filtered = aircraft.filter((ac) => {
+          if (!ac) return false;
+          const isMilitary = ac.classification === "verified_military" || ac.category === "tanker";
+          if (!aircraftFilter.showMilitary && !aircraftFilter.showCivil) return true;
+          if (isMilitary && aircraftFilter.showMilitary) return true;
+          if (!isMilitary && aircraftFilter.showCivil) return true;
+          return false;
+        });
+
+        filtered.slice(0, maxMarkers).forEach((ac) => {
+          if (!ac || typeof ac.lat !== "number" || typeof ac.lon !== "number") return;
+
+          const isTanker = ac.category === "tanker";
+          const isMilitary = ac.classification === "verified_military";
+          const color = isTanker ? "#ff0000" : (isMilitary ? "#ff8800" : "#00aaff");
+          const radius = isTanker ? 6 : 4;
+
+          const altitudeM = typeof ac.altitudeM === "number" ? Math.round(ac.altitudeM) : null;
+          const altitudeFt = altitudeM !== null ? Math.round(altitudeM * 3.28084) : null;
+          const velocityKts = typeof ac.velocityMs === "number" ? Math.round(ac.velocityMs * 1.94384) : null;
+          const heading = typeof ac.headingDeg === "number" ? `${Math.round(ac.headingDeg)}°` : t("notAvailable");
+
+          const popup = `
+            <div style="font-size: 12px; line-height: 1.4;">
+              <div><strong>${ac.callsign || t("aircraftUnknown")}</strong> ${isTanker ? "🛩️" : "✈️"}</div>
+              <div>${t("aircraftIcao")}: ${ac.icao24 || t("notAvailable")}</div>
+              <div>${t("aircraftSource")}: ${ac.source || t("notAvailable")}</div>
+              <div>${t("aircraftOrigin")}: ${ac.originCountry || t("notAvailable")}</div>
+              <div>${t("aircraftCategory")}: ${typeof ac.aircraftCategory === "number" ? ac.aircraftCategory : t("notAvailable")}</div>
+              <div>${t("aircraftClassification")}: ${isMilitary ? t("aircraftVerifiedMilitary") : t("aircraftUnknownOther")}</div>
+              <div>${t("aircraftAltitude")}: ${altitudeM !== null ? `${altitudeM} m (${altitudeFt} ft)` : t("notAvailable")}</div>
+              <div>${t("aircraftSpeed")}: ${velocityKts !== null ? `${velocityKts} kt` : t("notAvailable")}</div>
+              <div>${t("aircraftHeading")}: ${heading}</div>
+              <div>${t("aircraftOnGround")}: ${ac.onGround === true ? t("aircraftYes") : ac.onGround === false ? t("aircraftNo") : t("notAvailable")}</div>
+            </div>
+          `;
+
+          L.circleMarker([ac.lat, ac.lon], {
+            radius,
+            color,
+            weight: 1,
+            fillColor: color,
+            fillOpacity: 0.7,
+          })
+            .addTo(aircraftLayer)
+            .bindPopup(popup);
+        });
+      }
+      
+      // Initialize markers
+      updateMapMarkers({ overall: 0.3, components: { militaryTankers: 0.1 } });
+      mountMapFilters();
+
+      function updateChart(name, value) {
+        const chart = charts[name];
+        if (!chart) {
+          console.warn(`[chart] Chart ${name} not found`);
+          return;
+        }
+        
+        // Add realistic micro-variations to simulate real-time fluctuations
+        // This makes charts more dynamic and realistic
+        // Smaller noise for more accurate representation
+        const noise = (Math.random() - 0.5) * 0.015; // ±0.75% noise for realism
+        const adjustedValue = Math.max(0, Math.min(1, value + noise));
+        
+        history[name].push(adjustedValue);
+        
+        // Keep more history for better trend visualization (up to 60 points = 5 minutes at 5s intervals)
+        if (history[name].length > 60) history[name].shift();
+        
+        // Calculate trend for better visualization
+        const recentValues = history[name].slice(-10);
+        const trend = recentValues.length > 1 
+          ? (recentValues[recentValues.length - 1] - recentValues[0]) / recentValues.length
+          : 0;
+        
+        // Apply minimal smoothing - keep most of the volatility for realistic look
+        // Only smooth if we have enough data points
+        const smoothedData = history[name].length > 3 
+          ? history[name].map((val, idx, arr) => {
+              if (idx === 0 || idx === arr.length - 1) return val; // Keep first and last accurate
+              // Very light smoothing - 85% current value, 15% previous (keeps volatility)
+              const weight = 0.85;
+              return val * weight + arr[idx - 1] * (1 - weight);
+            })
+          : history[name]; // Use raw data if not enough points yet
+        
+        chart.data.labels = smoothedData.map((_, i) => i);
+        chart.data.datasets[0].data = smoothedData;
+        
+        // Update chart colors based on trend
+        const baseColor = chartColors[name];
+        if (trend > 0.01) {
+          // Rising trend - slightly brighter
+          chart.data.datasets[0].borderColor = baseColor;
+          chart.data.datasets[0].backgroundColor = createGradient(chart.ctx, baseColor);
+        } else if (trend < -0.01) {
+          // Falling trend - slightly dimmer
+          chart.data.datasets[0].borderColor = baseColor;
+          chart.data.datasets[0].backgroundColor = createGradient(chart.ctx, baseColor);
+        }
+        
+        // Update with smooth animation
+        chart.update("active");
+        
+        // Add visual feedback - flash effect
+        const canvas = chart.canvas;
+        if (canvas) {
+          canvas.style.transition = "box-shadow 0.3s";
+          canvas.style.boxShadow = `0 0 15px ${chartColors[name]}`;
+          setTimeout(() => {
+            canvas.style.boxShadow = "none";
+          }, 300);
+        }
+        
+        console.log(`[chart] Updated ${name}: ${value.toFixed(3)} → ${adjustedValue.toFixed(3)} (trend: ${trend > 0 ? '+' : ''}${trend.toFixed(4)}, ${history[name].length} points)`);
+      }
+
+      async function fetchJson(path) {
+        try {
+          const res = await fetch(`/api${path}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.json();
+        } catch (err) {
+          console.error(`[fetch] Failed:`, err);
+          throw err;
+        }
+      }
+
+      function renderSignals(signals) {
+        const container = document.getElementById("signals");
+        container.innerHTML = "";
+        signals.slice(0, 10).forEach((s) => {
+          const li = document.createElement("li");
+          const label = (SIGNAL_LABELS[currentLang] && SIGNAL_LABELS[currentLang][s.signalType])
+            || SIGNAL_LABELS.en[s.signalType]
+            || s.signalType;
+          const conf = Math.round(s.confidence * 100);
+          const indicator = conf > 60 ? "critical" : conf > 40 ? "warning" : "active";
+          li.innerHTML = `
+            <span><span class="indicator ${indicator}"></span><span class="signal-name">${label}</span></span>
+            <span class="signal-value">${s.summary}</span>
+          `;
+          container.appendChild(li);
+        });
+      }
+
+      function renderRules(rules) {
+        const container = document.getElementById("rules");
+        container.innerHTML = "";
+        if (!rules.length) {
+          container.innerHTML = `<li style="color: #666;">${t("noActiveRules")}</li>`;
+          return;
+        }
+        rules.forEach((r) => {
+          const li = document.createElement("li");
+          li.innerHTML = `
+            <span><span class="indicator critical"></span><span class="signal-name">${r.label}</span></span>
+            <span class="signal-value">+${Math.round(r.impact * 100)}%</span>
+          `;
+          container.appendChild(li);
+        });
+      }
+
+      function updateSystemTime() {
+        const now = new Date();
+        document.getElementById("system-time").textContent = now.toLocaleTimeString();
+      }
+
+      function renderAnalysis(analysis, containerId) {
+        const container = document.getElementById(containerId);
+        if (!container || !analysis) return;
+
+        const riskClass = analysis.riskLevel;
+        const trendIcon = analysis.trend === "increasing" ? "↗" : analysis.trend === "decreasing" ? "↘" : "→";
+        const trendColor = analysis.trend === "increasing" ? "#ff0000" : analysis.trend === "decreasing" ? "#00ff00" : "#ffff00";
+        const riskLabel = riskLabelFromLevel(riskClass);
+
+        // Fade out old content
+        container.style.opacity = "0.5";
+        container.style.transition = "opacity 0.3s ease";
+
+        setTimeout(() => {
+          let html = `
+            <div class="analysis-summary">
+              ${analysis.summary}
+              <span class="risk-badge ${riskClass}">${riskLabel}</span>
+              <span style="color: ${trendColor}; font-weight: bold;">${trendIcon}</span>
+            </div>
+          `;
+
+          if (analysis.recommendation) {
+            html += `<div class="analysis-recommendation">${t("modalRecommendation")}: ${analysis.recommendation}</div>`;
+          }
+          if (analysis.details && analysis.details.length > 0) {
+            html += `<div class="analysis-hint"><span class="analysis-hint-icon">i</span>${t("analysisHint")}</div>`;
+          }
+
+          container.innerHTML = html;
+          
+          // Fade in new content
+          container.style.opacity = "1";
+        }, 150);
+      }
+
+      let isRefreshing = false;
+      let retryCount = 0;
+      const MAX_RETRIES = 3;
+
+      async function refresh() {
+        if (isRefreshing) return;
+        isRefreshing = true;
+        
+        // Show loading indicator
+        const statusDot = document.querySelector(".status-dot");
+        if (statusDot) {
+          statusDot.style.animation = "pulse 0.5s infinite";
+        }
+        
+        try {
+          // Fetch all data in parallel for better performance
+          const [score, signals, trend, analysis, status, aircraftPayload] = await Promise.all([
+            fetchJson("/score"),
+            fetchJson("/signals"),
+            fetchJson("/trend"),
+            fetchJson("/analysis").catch(err => {
+              console.warn("[refresh] Analysis fetch failed, continuing without it:", err);
+              return null;
+            }),
+            fetchJson("/status").catch(() => ({ isSimulated: true, hasRealData: false })),
+            fetchJson(`/aircraft?scope=${aircraftFilter.scope}`).catch(() => ({ aircraft: [], updatedAt: Date.now() }))
+          ]);
+          
+          // Store data globally for info modal access
+          window.currentAnalysis = analysis;
+          window.currentScore = score;
+          window.currentSignals = signals;
+          
+          retryCount = 0; // Reset retry count on success
+          
+          // Update data status indicator
+        const dataStatusEl = document.getElementById("data-status");
+          if (dataStatusEl) {
+            if (status && status.isSimulated && !status.hasRealData) {
+              dataStatusEl.style.display = "block";
+            dataStatusEl.textContent = `⚠️ ${t("simulationMode")}`;
+              dataStatusEl.style.color = "var(--scada-yellow)";
+            } else if (status && status.hasRealData) {
+              dataStatusEl.style.display = "block";
+            dataStatusEl.textContent = `✅ ${t("liveData")}`;
+              dataStatusEl.style.color = "var(--scada-green)";
+            } else {
+              dataStatusEl.style.display = "none";
+            }
+          }
+
+          // Update circular gauge with smooth animation
+          const scoreEl = document.getElementById("score");
+          const gaugeFill = document.getElementById("gauge-fill");
+          const riskBadge = document.getElementById("risk-badge");
+          const scorePercent = Math.round(((score && score.overall) || 0) * 100);
+          const oldPercent = parseInt(scoreEl.textContent.replace("%", "")) || 0;
+          
+          // Calculate risk level and colors
+          let riskLevel, riskClass, riskText, gaugeColor;
+          if (scorePercent >= 70) {
+            riskLevel = "critical";
+            riskClass = "critical";
+          riskText = t("riskHigh");
+            gaugeColor = "#ff0000";
+          } else if (scorePercent >= 40) {
+            riskLevel = "high";
+            riskClass = "high";
+          riskText = t("riskMedium");
+            gaugeColor = "#ff8800";
+          } else {
+            riskLevel = "low";
+            riskClass = "low";
+          riskText = t("riskLow");
+            gaugeColor = "#00ff00";
+          }
+          
+          // Update percentage text
+          scoreEl.textContent = `${scorePercent}%`;
+          scoreEl.className = `gauge-value ${riskClass}`;
+          
+          // Update risk badge
+          riskBadge.textContent = riskText;
+          riskBadge.className = `risk-badge-large ${riskClass}`;
+          
+          // Update circular gauge fill with animation
+          // Circumference = 2 * PI * radius = 2 * PI * 75 ≈ 471.24
+          const circumference = 2 * Math.PI * 75;
+          const offset = circumference - (scorePercent / 100) * circumference;
+          
+          // Ensure stroke-dasharray is set
+          if (!gaugeFill.style.strokeDasharray) {
+            gaugeFill.style.strokeDasharray = circumference;
+          }
+          
+          // Animate to new value
+          gaugeFill.style.strokeDashoffset = offset;
+          gaugeFill.className = `gauge-fill ${riskClass}`;
+          
+          console.log(`[gauge] Updated to ${scorePercent}% (offset: ${offset.toFixed(2)})`);
+          
+          // Add pulse effect on significant change
+          if (Math.abs(oldPercent - scorePercent) > 5) {
+            scoreEl.style.animation = "pulse 0.8s ease";
+            gaugeFill.style.filter = "drop-shadow(0 0 15px currentColor)";
+            setTimeout(() => {
+              scoreEl.style.animation = "";
+              gaugeFill.style.filter = "drop-shadow(0 0 8px currentColor)";
+            }, 800);
+          }
+          
+          // Always ensure gauge has glow
+          if (!gaugeFill.style.filter) {
+            gaugeFill.style.filter = "drop-shadow(0 0 8px currentColor)";
+          }
+
+          // Update component values with smooth animation
+          if (score && score.components && signals) {
+            const updateValue = (id, value, suffix = "%") => {
+              const el = document.getElementById(id);
+              if (el) {
+                const oldValue = parseFloat(el.textContent.replace(/[^0-9.]/g, "")) || 0;
+                const newValue = Math.round(value * 100);
+                if (oldValue !== newValue) {
+                  el.classList.add("updating");
+                  el.textContent = `${newValue}${suffix}`;
+                  setTimeout(() => el.classList.remove("updating"), 500);
+                }
+              }
+            };
+
+            // Get raw data from signals for accurate display
+            const getSignalData = (signalType) => {
+              const signal = signals.find(s => s.signalType === signalType);
+              return (signal && signal.rawRef) || {};
+            };
+
+            // News Intel - show percentage (normalized 0-1 value) or N/A if unavailable
+            const newsEl = document.getElementById("news-value");
+            if (newsEl) {
+              const isUnavailable = score.unavailable && score.unavailable.includes("newsIntel");
+              const newsPercent = isUnavailable ? null : Math.round(score.components.newsIntel * 100);
+              const oldText = newsEl.textContent.trim();
+              const oldPercent = oldText === "--%" || oldText === t("notAvailable") ? null : (parseInt(oldText.replace(/[^0-9]/g, "")) || 0);
+              // Always update - force update to ensure values are displayed
+              if (oldPercent !== newsPercent || oldText === "--%" || oldText === t("notAvailable") || (isUnavailable && oldText !== t("notAvailable"))) {
+                newsEl.classList.add("updating");
+                newsEl.textContent = isUnavailable ? t("notAvailable") : `${newsPercent}%`;
+                newsEl.style.opacity = isUnavailable ? "0.6" : "1";
+                setTimeout(() => newsEl.classList.remove("updating"), 500);
+              }
+            }
+
+            // Public Interest - show percentage (normalized 0-1 value) or N/A if unavailable
+            const interestEl = document.getElementById("interest-value");
+            if (interestEl) {
+              const isUnavailable = score.unavailable && score.unavailable.includes("publicInterest");
+              const interestPercent = isUnavailable ? null : Math.round(score.components.publicInterest * 100);
+              const oldText = interestEl.textContent.trim();
+              const oldPercent = oldText === "--%" || oldText === t("notAvailable") ? null : (parseInt(oldText.replace(/[^0-9]/g, "")) || 0);
+              // Always update - force update to ensure values are displayed
+              if (oldPercent !== interestPercent || oldText === "--%" || oldText === t("notAvailable") || (isUnavailable && oldText !== t("notAvailable"))) {
+                interestEl.classList.add("updating");
+                interestEl.textContent = isUnavailable ? t("notAvailable") : `${interestPercent}%`;
+                interestEl.style.opacity = isUnavailable ? "0.6" : "1";
+                setTimeout(() => interestEl.classList.remove("updating"), 500);
+              }
+            }
+
+            // Civil Aviation - show percentage (normalized 0-1 value converted to percentage) or N/A if unavailable
+            const aviationEl = document.getElementById("aviation-value");
+            if (aviationEl) {
+              const isUnavailable = score.unavailable && score.unavailable.includes("civilAviation");
+              const aviationPercent = isUnavailable ? null : Math.round(score.components.civilAviation * 100);
+              const oldText = aviationEl.textContent.trim();
+              const oldPercent = oldText === "--%" || oldText === t("notAvailable") ? null : (parseInt(oldText.replace(/[^0-9]/g, "")) || 0);
+              // Always update - force update to ensure values are displayed
+              if (oldPercent !== aviationPercent || oldText === "--%" || oldText === t("notAvailable") || (isUnavailable && oldText !== t("notAvailable"))) {
+                aviationEl.classList.add("updating");
+                aviationEl.textContent = isUnavailable ? t("notAvailable") : `${aviationPercent}%`;
+                aviationEl.style.opacity = isUnavailable ? "0.6" : "1";
+                setTimeout(() => aviationEl.classList.remove("updating"), 500);
+              }
+            }
+
+            // Military Tankers - show percentage (normalized 0-1 value converted to percentage) or N/A if unavailable
+            const tankersEl = document.getElementById("tankers-value");
+            if (tankersEl) {
+              const isUnavailable = score.unavailable && score.unavailable.includes("militaryTankers");
+              const tankersPercent = isUnavailable ? null : Math.round(score.components.militaryTankers * 100);
+              const oldText = tankersEl.textContent.trim();
+              const oldPercent = oldText === "--%" || oldText === t("notAvailable") ? null : (parseInt(oldText.replace(/[^0-9]/g, "")) || 0);
+              // Always update - force update to ensure values are displayed (including 0%)
+              if (oldPercent !== tankersPercent || oldText === "--%" || oldText === t("notAvailable") || (isUnavailable && oldText !== t("notAvailable"))) {
+                tankersEl.classList.add("updating");
+                tankersEl.textContent = isUnavailable ? t("notAvailable") : `${tankersPercent}%`;
+                tankersEl.style.opacity = isUnavailable ? "0.6" : "1";
+                setTimeout(() => tankersEl.classList.remove("updating"), 500);
+              }
+            }
+
+            // Markets - show percentage from impliedProb if available, otherwise from normalized value, or N/A if unavailable
+            const marketsData = getSignalData("markets");
+            const marketsEl = document.getElementById("markets-value");
+            if (marketsEl) {
+              const isUnavailable = (score.unavailable && score.unavailable.includes("markets")) || marketsData.dataStatus === "unavailable";
+              let marketPercent = null;
+              if (!isUnavailable) {
+                const impliedProb = marketsData.impliedProb !== undefined && marketsData.impliedProb !== null ? marketsData.impliedProb : score.components.markets;
+                marketPercent = Math.round(impliedProb * 100);
+              }
+              const oldText = marketsEl.textContent.trim();
+              const oldPercent = oldText === "--%" || oldText === t("notAvailable") ? null : (parseInt(oldText.replace(/[^0-9]/g, "")) || 0);
+              // Always update - force update to ensure values are displayed
+              if (oldPercent !== marketPercent || oldText === "--%" || oldText === t("notAvailable") || (isUnavailable && oldText !== t("notAvailable"))) {
+                marketsEl.classList.add("updating");
+                marketsEl.textContent = isUnavailable ? t("notAvailable") : `${marketPercent}%`;
+                marketsEl.style.opacity = isUnavailable ? "0.6" : "1";
+                setTimeout(() => marketsEl.classList.remove("updating"), 500);
+              }
+            }
+
+            // Pizza - show percentage (normalized 0-1 value)
+            const pizzaPercent = Math.round(score.components.pizza * 100);
+            const pizzaEl = document.getElementById("pizza-value");
+            if (pizzaEl) {
+              const oldText = pizzaEl.textContent.trim();
+              const oldPercent = oldText === "--%" || oldText === t("notAvailable") ? null : (parseInt(oldText.replace(/[^0-9]/g, "")) || 0);
+              // Always update - force update to ensure values are displayed (including 0%)
+              if (oldPercent === null || oldPercent !== pizzaPercent || oldText === "--%" || oldText === t("notAvailable")) {
+                pizzaEl.classList.add("updating");
+                pizzaEl.textContent = `${pizzaPercent}%`;
+                setTimeout(() => pizzaEl.classList.remove("updating"), 500);
+              }
+            }
+
+            // Weather - show percentage (normalized 0-1 value converted to percentage) or N/A if unavailable
+            const weatherEl = document.getElementById("weather-value");
+            if (weatherEl) {
+              const isUnavailable = score.unavailable && score.unavailable.includes("weather");
+              const weatherPercent = isUnavailable ? null : Math.round(score.components.weather * 100);
+              const oldText = weatherEl.textContent.trim();
+              const oldPercent = oldText === "--%" || oldText === t("notAvailable") ? null : (parseInt(oldText.replace(/[^0-9]/g, "")) || 0);
+              // Always update - force update to ensure values are displayed
+              if (oldPercent !== weatherPercent || oldText === "--%" || oldText === t("notAvailable") || (isUnavailable && oldText !== t("notAvailable"))) {
+                weatherEl.classList.add("updating");
+                weatherEl.textContent = isUnavailable ? t("notAvailable") : `${weatherPercent}%`;
+                weatherEl.style.opacity = isUnavailable ? "0.6" : "1";
+                setTimeout(() => weatherEl.classList.remove("updating"), 500);
+              }
+            }
+
+            // Update individual indicator charts with smooth animation
+            console.log("[refresh] Updating charts with values:", {
+              news: score.components.newsIntel,
+              interest: score.components.publicInterest,
+              aviation: score.components.civilAviation,
+              tankers: score.components.militaryTankers,
+              markets: score.components.markets,
+              pizza: score.components.pizza,
+              weather: score.components.weather
+            });
+            
+            updateChart("news", score.components.newsIntel);
+            updateChart("interest", score.components.publicInterest);
+            updateChart("aviation", score.components.civilAviation);
+            updateChart("tankers", score.components.militaryTankers);
+            updateChart("markets", score.components.markets);
+            updateChart("pizza", score.components.pizza);
+            updateChart("weather", score.components.weather);
+          }
+
+          // Update main trend chart with full trend data (8-hour forecast)
+          if (trend && trend.length > 0) {
+            // Add realistic micro-variations to trend for more dynamic visualization
+            const trendData = trend.map((p, idx) => {
+              const base = p.score;
+              // Add small variations to make it look more realistic
+              const variation = (Math.sin(idx * 0.5) * 0.02) + ((Math.random() - 0.5) * 0.015);
+              return Math.max(0, Math.min(1, base + variation));
+            });
+            
+            charts.trend.data.labels = trend.map((_, i) => `${i}h`);
+            charts.trend.data.datasets[0].data = trendData;
+            
+            // Update trend history for continuity
+            trendData.forEach(val => {
+              history.trend.push(val);
+              if (history.trend.length > 60) history.trend.shift();
+            });
+            
+            charts.trend.update("active");
+          } else {
+            // Fallback: use overall score for trend
+            updateChart("trend", (score && score.overall) || 0);
+          }
+
+          // Update map markers dynamically
+          if (score) {
+            updateMapMarkers(score);
+          }
+          updateAircraftMarkers(aircraftPayload);
+
+          const updateTime = new Date((score && score.updatedAt) || Date.now());
+          document.getElementById("score-updated").textContent = `${t("updated")}: ${updateTime.toLocaleTimeString()}`;
+          document.getElementById("last-update").textContent = `${t("updatedShort")}: ${updateTime.toLocaleTimeString()}`;
+          
+          // Update projected risk from trend
+          if (trend && trend.length > 0) {
+            const avgNext8h = trend.slice(1, 9).reduce((sum, p) => sum + p.score, 0) / 8;
+            const projectedPercent = Math.round(avgNext8h * 100);
+            const projectedEl = document.getElementById("projected-risk");
+            if (projectedEl) {
+              projectedEl.textContent = `${t("projectedRiskPrefix")} ${projectedPercent}%`;
+            }
+          }
+
+          renderSignals(signals);
+          renderRules((score && score.rules) || []);
+
+          // Render professional analyses
+          if (analysis) {
+            renderAnalysis(analysis.newsIntel, "news-analysis");
+            renderAnalysis(analysis.publicInterest, "interest-analysis");
+            renderAnalysis(analysis.civilAviation, "aviation-analysis");
+            renderAnalysis(analysis.militaryTankers, "tankers-analysis");
+            renderAnalysis(analysis.markets, "markets-analysis");
+            renderAnalysis(analysis.pizza, "pizza-analysis");
+            renderAnalysis(analysis.weather, "weather-analysis");
+            
+            // Store analysis data for info modal
+            window.currentAnalysis = analysis;
+            window.currentScore = score;
+            window.currentSignals = signals;
+          }
+
+          console.log(`[refresh] Updated, score: ${scorePercent}%`);
+          
+          // Reset status dot animation
+          if (statusDot) {
+            statusDot.style.animation = "none";
+          }
+        } catch (err) {
+          console.error("[refresh] Error:", err);
+          retryCount++;
+          
+          // Update error indicator
+          const lastUpdate = document.getElementById("last-update");
+          if (lastUpdate) {
+            lastUpdate.textContent = `ERR: ${err.message.substring(0, 20)}...`;
+            lastUpdate.style.color = "#ff0000";
+          }
+          
+          // Retry logic
+          if (retryCount < MAX_RETRIES) {
+            console.log(`[refresh] Retrying in ${retryCount * 2}s... (${retryCount}/${MAX_RETRIES})`);
+            setTimeout(() => {
+              isRefreshing = false;
+              refresh();
+            }, retryCount * 2000);
+            return;
+          } else {
+            console.error("[refresh] Max retries reached, stopping");
+            if (statusDot) {
+              statusDot.style.background = "#ff0000";
+              statusDot.style.boxShadow = "0 0 8px #ff0000";
+            }
+          }
+        } finally {
+          if (retryCount >= MAX_RETRIES || retryCount === 0) {
+            isRefreshing = false;
+          }
+        }
+      }
+
+      // Initialize gauge with starting value
+      function initializeGauge() {
+        const gaugeFill = document.getElementById("gauge-fill");
+        const scoreEl = document.getElementById("score");
+        const riskBadge = document.getElementById("risk-badge");
+        
+        if (gaugeFill && scoreEl && riskBadge) {
+          const circumference = 2 * Math.PI * 75; // ≈ 471.24
+          gaugeFill.style.strokeDasharray = circumference;
+          gaugeFill.style.strokeDashoffset = circumference; // Start at 0%
+          gaugeFill.className = "gauge-fill low";
+          gaugeFill.style.filter = "drop-shadow(0 0 8px currentColor)";
+          
+          // Set initial display
+          scoreEl.textContent = "--%";
+          scoreEl.className = "gauge-value low";
+          riskBadge.textContent = t("riskLow");
+          riskBadge.className = "risk-badge-large low";
+        }
+      }
+      
+      // Info Modal Functions
+      let currentAnalysisData = null;
+      let currentScoreData = null;
+      let currentSignalsData = null;
+      let currentIndicatorType = null;
+
+      function showInfoModal(indicatorType) {
+        const modal = document.getElementById("info-modal");
+        const modalTitle = document.getElementById("modal-title");
+        const modalBody = document.getElementById("modal-body");
+        currentIndicatorType = indicatorType;
+        
+        if (!window.currentAnalysis || !window.currentScore) {
+          modalBody.innerHTML = `<div style="color: var(--scada-yellow);">${t("loading")}</div>`;
+          modal.classList.add("active");
+          refresh().then(() => {
+            showInfoModal(indicatorType);
+          });
+          return;
+        }
+
+        const analysis = window.currentAnalysis[indicatorType];
+        const score = window.currentScore.components[indicatorType];
+        const signals = (window.currentSignals && window.currentSignals.filter(s => s.signalType === indicatorType)) || [];
+        const signal = signals[0] || {};
+
+        const indicatorInfoEn = {
+          newsIntel: {
+            title: "News Intel Indicator",
+            weight: "30%",
+            description: "Monitors news articles from major outlets for strike-related keywords and urgent language patterns.",
+            dataSource: "NewsAPI.ai (Event Registry)",
+            apiKey: "Stored server-side (not exposed)"
+          },
+          publicInterest: {
+            title: "Public Interest Indicator",
+            weight: "20%",
+            description: "Sources: Wikipedia + GDELT + Polymarket. Wikipedia tracks pageviews on key Iran topics. GDELT tracks Iran-related articles across 65 languages and their tone. Polymarket tracks prediction markets for Iran/strike-related topics. Risk logic: high GDELT volume + negative tone = elevated; Wikipedia spikes above 80k/day = public concern; Polymarket probability >15% = market concern. Combined signals give early warning.",
+            dataSource: "Wikipedia API + GDELT API + Polymarket API",
+            apiKey: "No key required (all public APIs)"
+          },
+          civilAviation: {
+            title: "Civil Aviation Indicator",
+            weight: "15%",
+            description: "Monitors commercial flight activity to/from Iran airports. Significant drops may indicate airspace avoidance.",
+            dataSource: "Aviationstack API",
+            apiKey: "Stored server-side (not exposed)"
+          },
+          militaryTankers: {
+            title: "Military Tankers Indicator",
+            weight: "10%",
+            description: "Tracks US military refueling aircraft (KC-135, KC-10, KC-46, KC-130, KC-767) using ADS-B data from multiple regions. Risk logic is based on detected tanker count: intensity = tankerCount / 6 (6+ tankers = 100%).",
+            dataSource: "adsb.lol (public ADS-B API)",
+            apiKey: "No key required"
+          },
+          markets: {
+            title: "Market Odds Indicator",
+            weight: "10%",
+            description: "Analyzes prediction market odds from Polymarket and PredictIt for Iran/strike-related markets.",
+            dataSource: "Polymarket + PredictIt (public APIs)",
+            apiKey: "No key required"
+          },
+          pizza: {
+            title: "Pentagon Pizza Indicator",
+            weight: "10%",
+            description: "Proxy indicator tracking delivery activity patterns near Pentagon as indicator of extended operational hours.",
+            dataSource: "Simulation (no real API available)",
+            apiKey: "N/A"
+          },
+          weather: {
+            title: "Weather Indicator",
+            weight: "5%",
+            description: "Monitors weather conditions in Tehran (visibility, cloud cover) for operational feasibility assessment.",
+            dataSource: "OpenWeatherMap API",
+            apiKey: "Stored server-side (not exposed)"
+          }
+        };
+        const indicatorInfoHe = {
+          newsIntel: {
+            title: "מדד מודיעין חדשות",
+            weight: "30%",
+            description: "עוקב אחר כתבות חדשותיות ממקורות מרכזיים לזיהוי מילות מפתח ודפוסי שפה דחופים הקשורים לתקיפה.",
+            dataSource: "NewsAPI.ai (Event Registry)",
+            apiKey: "מאוחסן בשרת (לא חשוף)"
+          },
+          publicInterest: {
+            title: "מדד עניין ציבורי",
+            weight: "20%",
+            description: "מקורות: Wikipedia + GDELT + Polymarket. Wikipedia עוקב אחר צפיות בעמודים על איראן. GDELT עוקב אחר כתבות הקשורות לאיראן ב־65 שפות והטון שלהן. Polymarket עוקב אחר שווקי תחזיות בנושא איראן/תקיפה. לוגיקת סיכון: נפח GDELT גבוה + טון שלילי = סיכון מוגבר; קפיצה בוויקיפדיה מעל 80k ביום = עניין ציבורי; הסתברות Polymarket מעל 15% = דאגת שוק.",
+            dataSource: "Wikipedia API + GDELT API + Polymarket API",
+            apiKey: "לא נדרש (ממשקים ציבוריים)"
+          },
+          civilAviation: {
+            title: "מדד תעופה אזרחית",
+            weight: "15%",
+            description: "עוקב אחר פעילות טיסות מסחריות אל/מ־שדות תעופה באיראן. ירידות משמעותיות עשויות להעיד על הימנעות מטיסה.",
+            dataSource: "Aviationstack API",
+            apiKey: "מאוחסן בשרת (לא חשוף)"
+          },
+          militaryTankers: {
+            title: "מדד מתדלקים צבאיים",
+            weight: "10%",
+            description: "עוקב אחר מטוסי תדלוק אמריקאים (KC-135, KC-10, KC-46, KC-130, KC-767) באמצעות נתוני ADS-B מאזורים שונים. לוגיקת הסיכון מבוססת על מספר המתדלקים: intensity = tankerCount / 6 (6+ מתדלקים = 100%).",
+            dataSource: "adsb.lol (ADS-B ציבורי)",
+            apiKey: "לא נדרש"
+          },
+          markets: {
+            title: "מדד סיכויי שוק",
+            weight: "10%",
+            description: "מנתח סיכויי שווקי תחזיות ב־Polymarket ו־PredictIt עבור נושאי איראן/תקיפה.",
+            dataSource: "Polymarket + PredictIt (ממשקים ציבוריים)",
+            apiKey: "לא נדרש"
+          },
+          pizza: {
+            title: "מדד פיצה בפנטגון",
+            weight: "10%",
+            description: "מדד פרוקסי הבודק דפוסי משלוחים באזור הפנטגון כאינדיקציה לשעות פעילות ממושכות.",
+            dataSource: "סימולציה (אין API אמיתי)",
+            apiKey: "לא רלוונטי"
+          },
+          weather: {
+            title: "מדד מזג אוויר",
+            weight: "5%",
+            description: "מנטר תנאי מזג אוויר בטהרן (ראות, כיסוי עננים) לצורך הערכת היתכנות תפעולית.",
+            dataSource: "OpenWeatherMap API",
+            apiKey: "מאוחסן בשרת (לא חשוף)"
+          }
+        };
+
+        const indicatorInfo = currentLang === "he" ? indicatorInfoHe : indicatorInfoEn;
+        const info = indicatorInfo[indicatorType] || {};
+        const rawRef = signal.rawRef || (analysis && analysis.rawRef) || {};
+        const analysisRiskLevel = analysis && analysis.riskLevel ? riskLabelFromLevel(analysis.riskLevel) : t("notAvailable");
+        const analysisTrend = (analysis && analysis.trend) || "stable";
+        const analysisTrendText = analysisTrend === "increasing"
+          ? t("trendIncreasing")
+          : analysisTrend === "decreasing"
+            ? t("trendDecreasing")
+            : t("trendStable");
+        const analysisConfidencePct = Math.round(((analysis && analysis.confidence) || signal.confidence || 0) * 100);
+        const analysisSummary = (analysis && analysis.summary) || t("noAnalysis");
+        const analysisDetailsHtml = (analysis && analysis.details && analysis.details.map(d => `<div style="margin: 4px 0; padding-left: 12px;">• ${d}</div>`).join("")) || "";
+        const analysisRecommendationHtml = (analysis && analysis.recommendation)
+          ? `<div style="margin-top: 8px; color: var(--scada-yellow);"><strong>${t("modalRecommendation")}:</strong> ${analysis.recommendation}</div>`
+          : "";
+        const airportsText = (rawRef.airports && rawRef.airports.join(", ")) || "IKA (Tehran), SYZ (Shiraz), MHD (Mashhad)";
+        const searchAreasText = (rawRef.searchAreas && rawRef.searchAreas.join(", ")) || "Global Military, Persian Gulf, Eastern Mediterranean";
+        const locationsText = (rawRef.locations && rawRef.locations.length > 0)
+          ? rawRef.locations.slice(0, 3).map((loc) => {
+              const latText = typeof loc.lat === "number" ? loc.lat.toFixed(1) : t("notAvailable");
+              const lonText = typeof loc.lon === "number" ? loc.lon.toFixed(1) : t("notAvailable");
+              return `${loc.flight || (currentLang === "he" ? "לא ידוע" : "Unknown")} (${latText}, ${lonText})`;
+            }).join(", ")
+          : "";
+
+        let html = `
+          <div class="modal-section">
+            <div class="modal-section-title">${t("modalDescription")}</div>
+            <div class="modal-section-content">${info.description || t("indicatorMonitoring")}</div>
+          </div>
+
+          <div class="modal-section">
+            <div class="modal-section-title">${t("modalCurrentStatus")}</div>
+            <div class="modal-section-content">
+              <div class="modal-data-item">
+                <span class="modal-data-label">${t("modalCurrentValue")}:</span>
+                <span class="modal-data-value">${Math.round((score || 0) * 100)}%</span>
+              </div>
+              <div class="modal-data-item">
+                <span class="modal-data-label">${t("modalRiskLevel")}:</span>
+                <span class="modal-data-value">${analysisRiskLevel}</span>
+              </div>
+              <div class="modal-data-item">
+                <span class="modal-data-label">${t("modalTrend")}:</span>
+                <span class="modal-data-value">${analysisTrendText}</span>
+              </div>
+              <div class="modal-data-item">
+                <span class="modal-data-label">${t("modalWeight")}:</span>
+                <span class="modal-data-value">${info.weight || t("notAvailable")}</span>
+              </div>
+              <div class="modal-data-item">
+                <span class="modal-data-label">${t("modalConfidence")}:</span>
+                <span class="modal-data-value">${analysisConfidencePct}%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-section">
+            <div class="modal-section-title">${t("modalRawData")}</div>
+            <div class="modal-section-content">
+        `;
+
+        // Add specific raw data based on indicator type - using actual data from signals
+        if (indicatorType === "newsIntel") {
+          const articles = rawRef.matchedArticles || rawRef.totalArticles || 0;
+          const urgentTone = rawRef.imminentTone || 0;
+          html += `
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("rawArticlesFound")}:</span>
+              <span class="modal-data-value">${articles} ${currentLang === "he" ? "מאמרים" : "articles"}</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("rawUrgentTone")}:</span>
+              <span class="modal-data-value">${Math.round(urgentTone * 100)}%</span>
+            </div>
+            ${rawRef.activeOutlets && rawRef.activeOutlets.length > 0 ? `
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("rawActiveOutlets")}:</span>
+              <span class="modal-data-value">${rawRef.activeOutlets.slice(0, 5).join(", ")}</span>
+            </div>
+            ` : ""}
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("rawSearchQuery")}:</span>
+              <span class="modal-data-value">Iran AND (strike OR attack OR military OR nuclear)</span>
+            </div>
+          `;
+        } else if (indicatorType === "publicInterest") {
+          // wikiSpike is normalized 0-1: 0.25 = baseline, >0.25 = positive, <0.25 = negative
+          const wikiSpikeNormalized = rawRef.wikiSpike || 0.25;
+          const wikiSpikePercent = Math.round((wikiSpikeNormalized - 0.25) * 400); // -100% to +300%
+          const avgToday = rawRef.avgToday;
+          const avgWeekAgo = rawRef.avgWeekAgo;
+          const gdeltArticleCount = rawRef.gdeltArticleCount || 0;
+          const polymarketMarkets = rawRef.polymarketMarkets || [];
+          const polymarketCount = rawRef.polymarketCount || 0;
+          const dataSource = rawRef.dataSource || {};
+          
+          html += `
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("rawWikipediaSpike")}:</span>
+              <span class="modal-data-value">${wikiSpikePercent > 0 ? "+" : ""}${wikiSpikePercent}%</span>
+            </div>
+            ${avgToday !== null && avgWeekAgo !== null ? `
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("rawWikipediaViews")}:</span>
+              <span class="modal-data-value">${Math.round(avgToday)} ${currentLang === "he" ? "היום" : "today"} ${currentLang === "he" ? "לעומת" : "vs"} ${Math.round(avgWeekAgo)} ${currentLang === "he" ? "לפני שבוע" : "week ago"}</span>
+            </div>
+            ` : ''}
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("rawPagesMonitored")}:</span>
+              <span class="modal-data-value">Iran, Iran–US relations, IRGC, Nuclear program, Tehran</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("rawGdeltArticles")}:</span>
+              <span class="modal-data-value">${gdeltArticleCount} ${currentLang === "he" ? "מאמרים על איראן ב־24 השעות האחרונות" : "Iran-related articles in last 24 hours"}</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("rawGdeltSentiment")}:</span>
+              <span class="modal-data-value">${rawRef.gdeltTone !== null && rawRef.gdeltTone !== undefined ? rawRef.gdeltTone.toFixed(2) : t("notAvailable")} ${currentLang === "he" ? "(שלילי = חשש)" : "(negative = concern)"}</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("rawPolymarketMarkets")}:</span>
+              <span class="modal-data-value">${polymarketCount > 0 ? `${polymarketCount} ${currentLang === "he" ? "שווקים רלוונטיים" : "relevant markets found"}` : (currentLang === "he" ? "לא נמצאו שווקים רלוונטיים" : "No relevant markets found")}</span>
+            </div>
+            ${polymarketMarkets.length > 0 ? `
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("rawTopPolymarketMarkets")}:</span>
+              <span class="modal-data-value"></span>
+            </div>
+            ${polymarketMarkets.slice(0, 5).map((market) => {
+              const prob = Math.round((market.prob || 0) * 100);
+              const question = (market.question || t("unknownLabel")).substring(0, 70);
+              return `
+              <div class="modal-data-item" style="padding-left: 20px; margin-top: 4px;">
+                <span class="modal-data-label" style="font-size: 11px;">•</span>
+                <span class="modal-data-value" style="font-size: 11px;">"${question}${question.length >= 70 ? '...' : ''}" (${prob}%)</span>
+              </div>
+              `;
+            }).join('')}
+            ${polymarketMarkets.length > 5 ? `
+            <div class="modal-data-item" style="padding-left: 20px;">
+              <span class="modal-data-value" style="font-size: 11px;">${currentLang === "he" ? `... ועוד ${polymarketMarkets.length - 5} שווקים` : `... and ${polymarketMarkets.length - 5} more markets`}</span>
+            </div>
+            ` : ''}
+            ` : ''}
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("rawDataSources")}:</span>
+              <span class="modal-data-value">Wikipedia: ${dataSource.wikipedia === "ok" ? "✅" : "❌"}, GDELT: ${dataSource.gdelt === "ok" ? "✅" : dataSource.gdelt === "empty" ? (currentLang === "he" ? "⚠️ (אין מאמרים)" : "⚠️ (no articles)") : "❌"}, Polymarket: ${dataSource.polymarket === "ok" ? "✅" : dataSource.polymarket === "empty" ? (currentLang === "he" ? "⚠️ (אין שווקים)" : "⚠️ (no markets)") : "❌"}</span>
+            </div>
+          `;
+        } else if (indicatorType === "civilAviation") {
+          const aircraftCount = rawRef.aircraftOverIran || rawRef.uniqueFlights || 0;
+          const baseline = rawRef.baseline || 120;
+          const drop = baseline > 0 ? Math.round(((baseline - aircraftCount) / baseline) * 100) : 0;
+          html += `
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "ספירת טיסות" : "Aircraft Count"}:</span>
+              <span class="modal-data-value">${aircraftCount} ${currentLang === "he" ? "טיסות" : "flights"}</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "קו בסיס (רגיל)" : "Baseline (Normal)"}:</span>
+              <span class="modal-data-value">${baseline} ${currentLang === "he" ? "טיסות" : "flights"}</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "ירידה" : "Reduction"}:</span>
+              <span class="modal-data-value">${drop}% ${currentLang === "he" ? "מתחת לקו הבסיס" : "below baseline"}</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("rawAirportsMonitored")}:</span>
+              <span class="modal-data-value">${airportsText}</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "סה״כ טיסות שנמצאו" : "Total Flights Found"}:</span>
+              <span class="modal-data-value">${rawRef.totalFlights || 0} (${rawRef.uniqueFlights || 0} ${currentLang === "he" ? "ייחודיות" : "unique"})</span>
+            </div>
+          `;
+        } else if (indicatorType === "militaryTankers") {
+          const tankerCount = rawRef.tankerCount || 0;
+          html += `
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "מספר מתדלקים" : "Tanker Count"}:</span>
+              <span class="modal-data-value">${tankerCount} ${currentLang === "he" ? "מטוסים" : "aircraft"}</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "זוהתה עלייה" : "Surge Detected"}:</span>
+              <span class="modal-data-value">${rawRef.surge ? (currentLang === "he" ? "⚠️ כן (3+ מתדלקים)" : "⚠️ YES (3+ tankers)") : (currentLang === "he" ? "לא (< 3 מתדלקים)" : "No (< 3 tankers)")}</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "סוגי מטוסים" : "Aircraft Types"}:</span>
+              <span class="modal-data-value">KC-135, KC-10, KC-46, KC-130, KC-767</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("rawSearchAreas")}:</span>
+              <span class="modal-data-value">${searchAreasText}</span>
+            </div>
+            ${rawRef.locations && rawRef.locations.length > 0 ? `
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "מיקומים פעילים" : "Active Locations"}:</span>
+              <span class="modal-data-value">${locationsText}</span>
+            </div>
+            ` : ""}
+          `;
+        } else if (indicatorType === "markets") {
+          const marketCount = rawRef.marketCount || 0;
+          html += `
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "שווקים שנמצאו" : "Markets Found"}:</span>
+              <span class="modal-data-value">${marketCount} ${marketCount > 0 ? (currentLang === "he" ? "שווקים רלוונטיים" : "relevant markets") : (currentLang === "he" ? "(סימולציה)" : "(using simulation)")}</span>
+            </div>
+            ${marketCount > 0 ? `
+            <div class="modal-data-item">
+              <span class="modal-data-label">Polymarket:</span>
+              <span class="modal-data-value">${rawRef.polyCount || 0} ${currentLang === "he" ? "שווקים" : "markets"}</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">PredictIt:</span>
+              <span class="modal-data-value">${rawRef.predictitCount || 0} ${currentLang === "he" ? "חוזים" : "contracts"}</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "הסתברות משתמעת" : "Implied Probability"}:</span>
+              <span class="modal-data-value">${Math.round((rawRef.impliedProb || 0) * 100)}%</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "מחזור כולל" : "Total Volume"}:</span>
+              <span class="modal-data-value">$${Math.round(rawRef.totalVolume || 0)}</span>
+            </div>
+            ${rawRef.topMarkets && rawRef.topMarkets.length > 0 ? `
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "שוק מוביל" : "Top Market"}:</span>
+              <span class="modal-data-value">"${(rawRef.topMarkets[0].question || "").substring(0, 50)}..." (${Math.round(rawRef.topMarkets[0].prob * 100)}%)</span>
+            </div>
+            ` : ""}
+            ` : `
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "סטטוס" : "Status"}:</span>
+              <span class="modal-data-value">${currentLang === "he" ? "⚠️ לא נמצאו שווקים רלוונטיים באיראן/תקיפה" : "⚠️ No Iran/strike markets found on prediction markets"}</span>
+            </div>
+            `}
+          `;
+        } else if (indicatorType === "pizza") {
+          html += `
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "מדד עומס" : "Load Index"}:</span>
+              <span class="modal-data-value">${Math.round((rawRef.loadIndex || 0) * 100)}%</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("modalDataSource")}:</span>
+              <span class="modal-data-value">${currentLang === "he" ? "⚠️ סימולציה (אין API אמיתי)" : "⚠️ Simulation (no real API available)"}</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "הערה" : "Note"}:</span>
+              <span class="modal-data-value">${currentLang === "he" ? "מדד פרוקסי - עוקב אחר דפוסי משלוחים כאינדיקציה לשעות פעילות ממושכות" : "Proxy indicator - tracks delivery patterns as indicator of extended operational hours"}</span>
+            </div>
+          `;
+        } else if (indicatorType === "weather") {
+          const visibility = rawRef.visibilityKm || 10;
+          const cloudCover = rawRef.cloudCover || 0.2;
+          html += `
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("rawWeatherVisibility")}:</span>
+              <span class="modal-data-value">${visibility} km</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("rawWeatherClouds")}:</span>
+              <span class="modal-data-value">${Math.round(cloudCover * 100)}%</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "תנאים" : "Conditions"}:</span>
+              <span class="modal-data-value">${visibility >= 8 && cloudCover <= 0.5 ? (currentLang === "he" ? "✅ אופטימלי" : "✅ Optimal") : (currentLang === "he" ? "⚠️ גבולי" : "⚠️ Marginal")}</span>
+            </div>
+            <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "מיקום" : "Location"}:</span>
+              <span class="modal-data-value">Tehran, Iran (35.6892°N, 51.3890°E)</span>
+            </div>
+          `;
+        }
+
+        html += `
+            </div>
+          </div>
+
+          <div class="modal-section">
+            <div class="modal-section-title">${t("modalAnalysis")}</div>
+            <div class="modal-section-content">
+              <div style="margin-bottom: 8px;"><strong>${t("modalSummary")}:</strong> ${analysisSummary}</div>
+              ${analysisDetailsHtml}
+              ${analysisRecommendationHtml}
+            </div>
+          </div>
+        `;
+
+        modalTitle.textContent = info.title || t("infoTitle");
+        modalBody.innerHTML = html;
+        modal.classList.add("active");
+      }
+
+      function closeInfoModal(event) {
+        if (event && event.target !== event.currentTarget) return;
+        document.getElementById("info-modal").classList.remove("active");
+      }
+
+      function openDonateModal() {
+        if (!DONATE_URL || DONATE_URL.includes("replace_with_your_link")) {
+          alert(t("donateAlert"));
+          return;
+        }
+        window.location.assign(DONATE_URL);
+      }
+
+      function closeDonateModal(event) {
+        if (event && event.target !== event.currentTarget) return;
+        document.getElementById("donate-modal").classList.remove("active");
+      }
+
+      // Close modal on Escape key
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeInfoModal();
+          closeDonateModal();
+        }
+      });
+
+      // Initialize
+      const langToggle = document.getElementById("lang-toggle");
+      if (langToggle) {
+        langToggle.addEventListener("click", () => {
+          setLang(currentLang === "he" ? "en" : "he");
+        });
+      }
+
+      setLang(currentLang);
+      initializeGauge();
+      updateSystemTime();
+      setInterval(updateSystemTime, 1000);
+      refresh();
+      setInterval(refresh, 60000); // Refresh every 60 seconds
+    </script>
+  </body>
+</html>
