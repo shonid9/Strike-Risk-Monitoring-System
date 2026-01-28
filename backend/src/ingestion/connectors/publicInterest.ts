@@ -9,8 +9,19 @@ export class PublicInterestConnector extends BaseConnector {
   private gdeltDocUrl = "https://api.gdeltproject.org/api/v2/doc/doc";
   private gdeltEventUrl = "https://api.gdeltproject.org/api/v2/event/event";
   private polymarketUrl = "https://gamma-api.polymarket.com/markets";
+  private lastEnvelope: SignalEnvelope[] | null = null;
+  private lastFetchedAt = 0;
+  private readonly minIntervalMs = 5 * 60 * 1000;
+  private readonly defaultHeaders = {
+    "Accept": "application/json",
+    "User-Agent": "StrikeRiskMonitor/1.0 (+https://github.com/shonid9/Strike-Risk-Monitoring-System)",
+  };
 
   async fetchSignals(): Promise<SignalEnvelope[]> {
+    const now = Date.now();
+    if (this.lastEnvelope && now - this.lastFetchedAt < this.minIntervalMs) {
+      return this.lastEnvelope;
+    }
     let gdeltTone: number | null = null;
     let gdeltArticleCount = 0;
     let wikiSpike = 0.42;
@@ -49,13 +60,13 @@ export class PublicInterestConnector extends BaseConnector {
           // Get today's views
           const todayResponse = await axios.get(
             `${this.wikiBaseUrl}/en.wikipedia.org/all-access/all-agents/${encodeURIComponent(page)}/daily/${today}00/${today}00`,
-            { timeout: 8000 }
+            { timeout: 8000, headers: this.defaultHeaders }
           );
 
           // Get week ago views for baseline
           const weekAgoResponse = await axios.get(
             `${this.wikiBaseUrl}/en.wikipedia.org/all-access/all-agents/${encodeURIComponent(page)}/daily/${weekAgo}00/${weekAgo}00`,
-            { timeout: 8000 }
+            { timeout: 8000, headers: this.defaultHeaders }
           );
 
           const todayData = todayResponse.data?.items?.[0]?.views || 0;
@@ -121,9 +132,7 @@ export class PublicInterestConnector extends BaseConnector {
           enddatetime: new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
         },
         timeout: 15000,
-        headers: {
-          'Accept': 'application/json'
-        }
+        headers: this.defaultHeaders
       });
 
       const gdeltData = gdeltResponse.data;
@@ -142,9 +151,7 @@ export class PublicInterestConnector extends BaseConnector {
               enddatetime: new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
             },
             timeout: 15000,
-            headers: {
-              'Accept': 'application/json'
-            }
+            headers: this.defaultHeaders
           });
 
           const eventData = eventResponse.data;
@@ -211,9 +218,7 @@ export class PublicInterestConnector extends BaseConnector {
             closed: false
           },
           timeout: 15000,
-          headers: {
-            'Accept': 'application/json'
-          }
+          headers: this.defaultHeaders
         });
 
         let polyMarkets: any[] = [];
@@ -342,7 +347,7 @@ export class PublicInterestConnector extends BaseConnector {
       ? summaryParts.join(" + ")
       : `Public interest data unavailable (Wikipedia/GDELT/Polymarket)`;
     
-    return [
+    const envelope = [
       this.makeEnvelope({
         source: this.config.name,
         confidence,
@@ -368,5 +373,8 @@ export class PublicInterestConnector extends BaseConnector {
         },
       }),
     ];
+    this.lastEnvelope = envelope;
+    this.lastFetchedAt = now;
+    return envelope;
   }
 }

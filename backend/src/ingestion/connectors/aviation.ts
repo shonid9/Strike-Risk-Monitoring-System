@@ -9,8 +9,15 @@ export class AviationConnector extends BaseConnector {
   private adsbBaseUrl = "https://api.adsb.lol/v2";
   private historicalCounts: number[] = []; // Store last 30 days of flight counts for baseline calculation
   private readonly BASELINE_WINDOW_DAYS = 7; // Use 7 days for baseline calculation
+  private lastEnvelope: SignalEnvelope[] | null = null;
+  private lastFetchedAt = 0;
+  private readonly minIntervalMs = 5 * 60 * 1000;
 
   async fetchSignals(): Promise<SignalEnvelope[]> {
+    const now = Date.now();
+    if (this.lastEnvelope && now - this.lastFetchedAt < this.minIntervalMs) {
+      return this.lastEnvelope;
+    }
     // Try to fetch real aircraft data from Aviationstack
     try {
       // Also fetch aircraft currently over Iran via ADS-B (more precise for airspace)
@@ -183,7 +190,7 @@ export class AviationConnector extends BaseConnector {
       
       console.log(`[AviationConnector] Real data (Aviationstack): ${aircraftOverIran} civil flights to/from Iran, ${overIranCount} over Iran airspace (${allFlights.length} total, ${uniqueFlights.length} unique), baseline: ${baseline.toFixed(1)}, dropRatio: ${dropRatio.toFixed(3)}, intensity: ${intensity.toFixed(3)}`);
       
-      return [
+      const envelope = [
         this.makeEnvelope({
           source: this.config.name,
           confidence,
@@ -218,6 +225,9 @@ export class AviationConnector extends BaseConnector {
           },
         }),
       ];
+      this.lastEnvelope = envelope;
+      this.lastFetchedAt = now;
+      return envelope;
     } catch (error: any) {
       // Do not simulate - return "unavailable" status with real ADS-B data only
       console.warn(`[AviationConnector] Aviationstack API failed, returning unavailable status with ADS-B data only:`, error.message);
@@ -227,7 +237,7 @@ export class AviationConnector extends BaseConnector {
       const overIranMilitaryCount = overIranResult.military.length;
       const groundResult = await this.fetchAirportGroundAircraft(iranAirports);
 
-      return [
+      const envelope = [
         this.makeEnvelope({
           source: this.config.name,
           confidence: 0,
@@ -256,6 +266,9 @@ export class AviationConnector extends BaseConnector {
           },
         }),
       ];
+      this.lastEnvelope = envelope;
+      this.lastFetchedAt = now;
+      return envelope;
     }
   }
 
