@@ -1468,7 +1468,7 @@
           analysisHint: "More details available in the info button above.",
           noActiveRules: "No active rules",
           notAvailable: "N/A",
-          simulationMode: "SIMULATION MODE - Data sources may not be connected",
+          simulationMode: "Initializing data streams...",
           liveData: "LIVE DATA - Real-time monitoring active",
           trendIncreasing: "↗ Increasing",
           trendDecreasing: "↘ Decreasing",
@@ -1571,7 +1571,7 @@
           analysisHint: "קיימים פרטים נוספים בכפתור המידע למעלה.",
           noActiveRules: "אין חוקים פעילים",
           notAvailable: "לא זמין",
-          simulationMode: "מצב סימולציה - ייתכן שמקורות הנתונים אינם מחוברים",
+          simulationMode: "מאתחל זרמי נתונים...",
           liveData: "נתונים חיים - ניטור בזמן אמת פעיל",
           trendIncreasing: "↗ בעלייה",
           trendDecreasing: "↘ בירידה",
@@ -2276,11 +2276,7 @@
           // Update data status indicator
         const dataStatusEl = document.getElementById("data-status");
           if (dataStatusEl) {
-            if (status && status.isSimulated && !status.hasRealData) {
-              dataStatusEl.style.display = "block";
-            dataStatusEl.textContent = `⚠️ ${t("simulationMode")}`;
-              dataStatusEl.style.color = "var(--scada-yellow)";
-            } else if (status && status.hasRealData) {
+            if (status && status.hasRealData) {
               dataStatusEl.style.display = "block";
             dataStatusEl.textContent = `✅ ${t("liveData")}`;
               dataStatusEl.style.color = "var(--scada-green)";
@@ -2971,7 +2967,7 @@
           html += `
             <div class="modal-data-item">
               <span class="modal-data-label">${currentLang === "he" ? "שווקים שנמצאו" : "Markets Found"}:</span>
-              <span class="modal-data-value">${marketCount} ${marketCount > 0 ? (currentLang === "he" ? "שווקים רלוונטיים" : "relevant markets") : (currentLang === "he" ? "(סימולציה)" : "(using simulation)")}</span>
+              <span class="modal-data-value">${marketCount} ${currentLang === "he" ? "שווקים רלוונטיים" : "relevant markets"}</span>
             </div>
             ${marketCount > 0 ? `
             <div class="modal-data-item">
@@ -3004,20 +3000,66 @@
             `}
           `;
         } else if (indicatorType === "pizza") {
+          const doughconLabel = rawRef.doughconLabel || "DOUGHCON 5 - NORMAL";
+          const components = rawRef.components || {};
+          
           html += `
             <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "סטטוס PIZZINT" : "PIZZINT Status"}:</span>
+              <span class="modal-data-value">${doughconLabel}</span>
+            </div>
+            <div class="modal-data-item">
               <span class="modal-data-label">${currentLang === "he" ? "מדד עומס" : "Load Index"}:</span>
-              <span class="modal-data-value">${Math.round((rawRef.loadIndex || 0) * 100)}%</span>
-            </div>
-            <div class="modal-data-item">
-              <span class="modal-data-label">${t("modalDataSource")}:</span>
-              <span class="modal-data-value">${currentLang === "he" ? "⚠️ סימולציה (אין API אמיתי)" : "⚠️ Simulation (no real API available)"}</span>
-            </div>
-            <div class="modal-data-item">
-              <span class="modal-data-label">${currentLang === "he" ? "הערה" : "Note"}:</span>
-              <span class="modal-data-value">${currentLang === "he" ? "מדד פרוקסי - עוקב אחר דפוסי משלוחים כאינדיקציה לשעות פעילות ממושכות" : "Proxy indicator - tracks delivery patterns as indicator of extended operational hours"}</span>
+              <span class="modal-data-value">${Math.round((rawRef.loadIndex || 0) * 100)}% ${currentLang === "he" ? "(בסיס: 15-20%)" : "(baseline: 15-20%)"}</span>
             </div>
           `;
+          
+          if (components.polymarket) {
+            html += `
+              <div class="modal-data-item">
+                <span class="modal-data-label">${currentLang === "he" ? "שווקי Polymarket" : "Polymarket Markets"}:</span>
+                <span class="modal-data-value">${components.polymarket.marketCount} ${currentLang === "he" ? "שווקים רלוונטיים" : "relevant markets"}</span>
+              </div>
+              <div class="modal-data-item">
+                <span class="modal-data-label">${currentLang === "he" ? "הסתברות ממוצעת" : "Average Probability"}:</span>
+                <span class="modal-data-value">${Math.round(components.polymarket.avgProb * 100)}%</span>
+              </div>
+            `;
+          }
+          
+          if (components.timeOfDay) {
+            html += `
+              <div class="modal-data-item">
+                <span class="modal-data-label">${currentLang === "he" ? "שעה נוכחית" : "Current Hour"}:</span>
+                <span class="modal-data-value">${components.timeOfDay.hour}:00 UTC</span>
+              </div>
+            `;
+            if (components.timeOfDay.bonus > 0) {
+              html += `
+                <div class="modal-data-item">
+                  <span class="modal-data-label">${currentLang === "he" ? "בונוס שעות מאוחרות" : "Late-Night Bonus"}:</span>
+                  <span class="modal-data-value">+${Math.round(components.timeOfDay.bonus * 100)}%</span>
+                </div>
+              `;
+            }
+          }
+          
+          html += `
+            <div class="modal-data-item">
+              <span class="modal-data-label">${t("modalDataSource")}:</span>
+              <span class="modal-data-value">${currentLang === "he" ? "Polymarket + ניתוח זמן" : "Polymarket + Time Analysis"}</span>
+            </div>
+          `;
+          
+          if (rawRef.pizzintUrl) {
+            html += `
+              <div class="modal-data-item">
+                <span class="modal-data-label">${currentLang === "he" ? "ניטור חי" : "Live Monitoring"}:</span>
+                <span class="modal-data-value"><a href="${rawRef.pizzintUrl}" target="_blank" rel="noopener" style="color: #4CAF50; text-decoration: underline;">PizzINT.watch</a></span>
+              </div>
+            `;
+          }
+        
         } else if (indicatorType === "weather") {
           const visibility = rawRef.visibilityKm || 10;
           const cloudCover = rawRef.cloudCover || 0.2;
