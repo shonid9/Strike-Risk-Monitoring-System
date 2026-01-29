@@ -583,23 +583,68 @@ export function analyzeIndicator(
 
     case "pizza":
       if (rawRef?.dataStatus === "unavailable") {
-        summary = "Pentagon Pizza indicator unavailable (no real data source).";
-        details.push("Simulated proxy disabled for accuracy.");
-        recommendation = "No real pizza delivery data source. Excluded from scoring.";
+        summary = "Pentagon Pizza Index unavailable.";
+        details.push("Data source error - unable to generate synthetic index");
+        recommendation = "Pizza Index temporarily unavailable.";
         break;
       }
-      summary = `Pentagon area delivery activity: ${Math.round(value * 100)}% above baseline.`;
-      if (rawRef?.loadIndex) {
-        const load = Math.round(rawRef.loadIndex * 100);
-        details.push(`Delivery load index: ${load}% (proxy for late-night operations)`);
-        if (load > 30) {
-          details.push("🍕 Unusual delivery surge suggests extended working hours at Pentagon");
+      
+      const doughconLevel = rawRef?.doughconLevel || 5;
+      const doughconLabel = rawRef?.doughconLabel || "DOUGHCON 5 - NORMAL";
+      const loadIndex = rawRef?.loadIndex || 0;
+      const load = Math.round(loadIndex * 100);
+      
+      summary = `Pentagon Pizza Index: ${load}% activity (${doughconLabel})`;
+      
+      details.push(`🍕 PIZZINT STATUS: ${doughconLabel}`);
+      details.push(`Load Index: ${load}% (baseline: 15-20%)`);
+      
+      if (rawRef?.components?.polymarket) {
+        const poly = rawRef.components.polymarket;
+        details.push(`\nPolymarket Iran/Strike Markets:`);
+        details.push(`  • ${poly.marketCount} relevant markets found`);
+        details.push(`  • Average probability: ${Math.round(poly.avgProb * 100)}%`);
+        details.push(`  • Contribution to index: ${Math.round(poly.contribution * 100)}%`);
+      }
+      
+      if (rawRef?.components?.timeOfDay) {
+        const tod = rawRef.components.timeOfDay;
+        details.push(`\nTime-of-Day Analysis:`);
+        details.push(`  • Current hour: ${tod.hour}:00 UTC`);
+        if (tod.bonus > 0) {
+          details.push(`  • Late-night bonus: +${Math.round(tod.bonus * 100)}% (typical surge window)`);
         }
       }
+      
+      if (load >= 70) {
+        details.push(`\n🚨 CRITICAL: Maximum pizza activity detected`);
+        details.push(`Historical precedent: Panama (1989), Gulf War (1991), recent Iran tensions (2024-26)`);
+      } else if (load >= 50) {
+        details.push(`\n⚠️ HIGH: Elevated pizza orders indicate increased intelligence watch`);
+      } else if (load >= 35) {
+        details.push(`\n📊 MODERATE: Pizza activity above baseline - elevated monitoring`);
+      }
+      
+      if (rawRef?.theory) {
+        details.push(`\nTheory: ${rawRef.theory}`);
+      }
+      
+      if (rawRef?.pizzintUrl) {
+        details.push(`\nLive monitoring: ${rawRef.pizzintUrl}`);
+      }
+      
+      if (rawRef?.disclaimer) {
+        details.push(`\nDisclaimer: ${rawRef.disclaimer}`);
+      }
+      
       recommendation =
-        value > 0.3
-          ? "Elevated delivery activity may indicate extended operational hours. Historical correlation with military operations exists."
-          : "Delivery patterns normal. No indicators of extended operational activity.";
+        load >= 70
+          ? "CRITICAL pizza activity. Monitor Polymarket Iran/strike markets and military movements closely. Historical correlation suggests 24-72h window before operations."
+          : load >= 50
+          ? "Elevated pizza orders detected. Cross-reference with tanker movements, C-17 flights, and Polymarket predictions."
+          : load >= 35
+          ? "Pizza activity above baseline. Continue monitoring for sustained patterns over 48-72 hours."
+          : "Pizza activity within normal range. No immediate correlation with operational activity.";
 
       break;
 

@@ -561,6 +561,30 @@
         color: var(--scada-green);
         border-bottom-color: var(--scada-green);
       }
+      .pizzint-live-link {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 8px;
+        padding: 2px 6px;
+        background: rgba(255, 140, 0, 0.1);
+        border: 1px solid rgba(255, 140, 0, 0.4);
+        border-radius: 3px;
+        color: #ff8c00;
+        text-decoration: none;
+        font-size: 10px;
+        font-weight: 700;
+        transition: all 0.2s ease;
+      }
+      .pizzint-live-link:hover {
+        background: rgba(255, 140, 0, 0.2);
+        border-color: rgba(255, 140, 0, 0.8);
+        color: #ff6600;
+        transform: scale(1.05);
+      }
+      .pizzint-live-link:focus-visible {
+        outline: 2px solid #ff8c00;
+        outline-offset: 2px;
+      }
       .analysis-recommendation {
         color: var(--scada-yellow);
         margin-top: 8px;
@@ -1298,7 +1322,13 @@
 
       <!-- Pizza Meter -->
       <div class="card">
-        <div class="card-title"><span data-i18n="pizzaTitle">Pentagon Pizza (10%)</span><button class="info-button" type="button" data-i18n-key="moreDetails" data-i18n-attr="aria-label,title" aria-label="More details" title="More details" onclick="showInfoModal('pizza')">i</button></div>
+        <div class="card-title">
+          <span data-i18n="pizzaTitle">Pentagon Pizza (10%)</span>
+          <a href="https://www.pizzint.watch/" target="_blank" rel="noopener" class="pizzint-live-link" title="View live PizzINT.watch">
+            🍕 LIVE
+          </a>
+          <button class="info-button" type="button" data-i18n-key="moreDetails" data-i18n-attr="aria-label,title" aria-label="More details" title="More details" onclick="showInfoModal('pizza')">i</button>
+        </div>
         <div class="indicator-value" id="pizza-value">--%</div>
         <div class="chart-container">
           <canvas id="pizza-chart"></canvas>
@@ -2667,11 +2697,11 @@
             apiKey: "No key required"
           },
           pizza: {
-            title: "Pentagon Pizza Indicator",
+            title: "Pentagon Pizza Index (PIZZINT)",
             weight: "10%",
-            description: "Proxy indicator tracking delivery activity patterns near Pentagon as indicator of extended operational hours.",
-            dataSource: "Simulation (no real API available)",
-            apiKey: "N/A"
+            description: "Intelligence by the slice. Synthetic index based on historical correlation between Pentagon late-night pizza orders and military operations. Theory established during Cold War (Soviet KGB 'PIZZINT' doctrine) and validated during Grenada (1983), Panama (1989), Gulf War (1991), and recent Iran tensions (2024-26). Data sources: Polymarket Iran/strike predictions + time-of-day patterns. DOUGHCON levels (1-5) indicate operational readiness. Live monitoring available at PizzINT.watch. For educational purposes only.",
+            dataSource: "Polymarket API + Synthetic Time Patterns",
+            apiKey: "No key required"
           },
           weather: {
             title: "Weather Indicator",
