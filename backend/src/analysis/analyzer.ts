@@ -136,14 +136,20 @@ export function analyzeIndicator(
       const gdeltArticleCount = rawRef?.gdeltArticleCount ?? 0;
       const hasRealData = rawRef?.hasRealData ?? false;
 
-      if (publicDataStatus === "unavailable") {
-        summary = "Public interest data unavailable (Wikipedia/GDELT/Polymarket).";
-        details.push("No simulated values used.");
+      // Handle degraded mode (some APIs unavailable but using baseline)
+      if (publicDataStatus === "degraded") {
+        summary = `Public interest: ${Math.round(value * 100)}% (baseline estimate - APIs temporarily unavailable).`;
+        details.push("⚠️ Using baseline estimate due to temporary API unavailability");
+        details.push("Baseline: 25% for known Iran-US tensions");
         if (publicDataSource) {
-          details.push(`Sources: wikipedia=${publicDataSource.wikipedia}, gdelt=${publicDataSource.gdelt}, polymarket=${publicDataSource.polymarket || "unavailable"}`);
+          const sources = [];
+          if (publicDataSource.wikipedia !== "ok") sources.push("Wikipedia");
+          if (publicDataSource.gdelt !== "ok") sources.push("GDELT");
+          if (publicDataSource.polymarket !== "ok") sources.push("Polymarket");
+          details.push(`Unavailable sources: ${sources.join(", ")}`);
         }
         recommendation =
-          "Public interest feeds unavailable. Verify Wikipedia pageviews directly, monitor GDELT availability, and check Polymarket for relevant markets.";
+          "Using baseline estimate. APIs will retry automatically. Current estimate reflects known geopolitical tensions.";
         break;
       }
 
@@ -164,8 +170,8 @@ export function analyzeIndicator(
         if (wikiSpikePercent > 50) {
           details.push("📈 Significant public awareness surge detected");
         }
-      } else {
-        details.push("Wikipedia data: unavailable");
+      } else if (publicDataStatus !== "degraded") {
+        details.push("Wikipedia data: temporarily unavailable");
       }
       
       // GDELT data
@@ -182,8 +188,8 @@ export function analyzeIndicator(
           }
         }
         details.push("GDELT data source: Real-time global news monitoring (65 languages)");
-      } else {
-        details.push("GDELT data: unavailable");
+      } else if (publicDataStatus !== "degraded") {
+        details.push("GDELT data: temporarily unavailable");
       }
       
       // Polymarket data
