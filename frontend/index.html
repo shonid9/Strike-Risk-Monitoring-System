@@ -523,6 +523,44 @@
       .analysis-details:hover {
         color: var(--scada-green);
       }
+      .polymarket-market {
+        background: rgba(37, 99, 235, 0.05);
+        border-left: 2px solid var(--scada-blue);
+        padding: 6px 8px;
+        margin: 4px 0;
+        border-radius: 3px;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      .polymarket-question {
+        color: var(--text-primary);
+        font-weight: 600;
+        margin-bottom: 3px;
+      }
+      .polymarket-meta {
+        color: var(--text-muted);
+        font-size: 10px;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .polymarket-prob {
+        color: var(--scada-blue);
+        font-weight: bold;
+      }
+      .polymarket-volume {
+        color: var(--scada-green);
+      }
+      .polymarket-link {
+        color: var(--scada-blue);
+        text-decoration: none;
+        border-bottom: 1px dashed rgba(37, 99, 235, 0.4);
+        transition: all 0.2s ease;
+      }
+      .polymarket-link:hover {
+        color: var(--scada-green);
+        border-bottom-color: var(--scada-green);
+      }
       .analysis-recommendation {
         color: var(--scada-yellow);
         margin-top: 8px;
@@ -2113,7 +2151,53 @@
           if (analysis.recommendation) {
             html += `<div class="analysis-recommendation">${t("modalRecommendation")}: ${analysis.recommendation}</div>`;
           }
-          if (analysis.details && analysis.details.length > 0) {
+          
+          // Show details for Public Interest (with special Polymarket formatting)
+          if (analysis.details && analysis.details.length > 0 && containerId === "interest-analysis") {
+            html += `<div class="analysis-hint"><span class="analysis-hint-icon">i</span>${t("analysisHint")}</div>`;
+            
+            // Check if details contain Polymarket data
+            let inPolymarketSection = false;
+            let marketCounter = 0;
+            
+            analysis.details.forEach((detail, idx) => {
+              if (detail.includes("Top markets by volume:")) {
+                inPolymarketSection = true;
+                html += `<div class="analysis-details" style="margin-top: 8px; font-weight: bold; color: var(--scada-blue);">${detail}</div>`;
+              } else if (inPolymarketSection && detail.trim().match(/^\d+\./)) {
+                // Market title line (starts with number)
+                const question = detail.replace(/^\s*\d+\.\s*"?/, '').replace(/"?\s*$/, '').trim();
+                marketCounter++;
+                html += `<div class="polymarket-market"><div class="polymarket-question">${question}</div>`;
+              } else if (inPolymarketSection && detail.trim().includes('probability') && detail.trim().includes('volume')) {
+                // Market metadata line
+                const probMatch = detail.match(/(\d+)%\s*probability/);
+                const volumeMatch = detail.match(/(\$[\d.]+[KM]?)\s*volume/);
+                const urlMatch = detail.match(/(https:\/\/polymarket\.com\/[^\s]+)/);
+                
+                let metaHtml = '<div class="polymarket-meta">';
+                if (probMatch) {
+                  metaHtml += `<span class="polymarket-prob">${probMatch[1]}% probability</span>`;
+                }
+                if (volumeMatch) {
+                  metaHtml += `<span class="polymarket-volume">${volumeMatch[1]} volume</span>`;
+                }
+                if (urlMatch) {
+                  metaHtml += `<a href="${urlMatch[1]}" target="_blank" rel="noopener" class="polymarket-link">View on Polymarket →</a>`;
+                }
+                metaHtml += '</div></div>';
+                html += metaHtml;
+              } else if (detail.includes("... and") && detail.includes("more markets")) {
+                inPolymarketSection = false;
+                html += `<div class="analysis-details" style="font-style: italic; color: var(--text-muted);">${detail}</div>`;
+              } else if (detail.includes("📊")) {
+                inPolymarketSection = false;
+                html += `<div class="analysis-details" style="margin-top: 8px; padding: 6px; background: rgba(37, 99, 235, 0.1); border-radius: 3px; font-weight: 600;">${detail}</div>`;
+              } else {
+                html += `<div class="analysis-details">${detail}</div>`;
+              }
+            });
+          } else if (analysis.details && analysis.details.length > 0) {
             html += `<div class="analysis-hint"><span class="analysis-hint-icon">i</span>${t("analysisHint")}</div>`;
           }
 
@@ -2557,8 +2641,8 @@
           publicInterest: {
             title: "Public Interest Indicator",
             weight: "20%",
-            description: "Sources: Wikipedia + GDELT + Polymarket. Wikipedia tracks pageviews on key Iran topics. GDELT tracks Iran-related articles across 65 languages and their tone. Polymarket tracks prediction markets for Iran/strike-related topics. Risk logic: high GDELT volume + negative tone = elevated; Wikipedia spikes above 80k/day = public concern; Polymarket probability >15% = market concern. Combined signals give early warning.",
-            dataSource: "Wikipedia API + GDELT API + Polymarket API",
+            description: "Three-source intelligence: (1) Polymarket - Decentralized prediction markets with real money trading on Iran/strike outcomes. Tracks crowd-sourced risk assessment and trading volume. (2) Wikipedia - Pageviews on Iran-related topics indicate public attention spikes. (3) GDELT - Real-time news monitoring across 65 languages for sentiment tone. Risk logic: Polymarket consensus >20% = HIGH, >12% = MODERATE; Wikipedia spikes >80k/day = public concern; GDELT negative tone <-1.0 = elevated.",
+            dataSource: "Polymarket API + Wikipedia API + GDELT API",
             apiKey: "No key required (all public APIs)"
           },
           civilAviation: {

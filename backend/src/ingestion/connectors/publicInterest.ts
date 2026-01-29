@@ -274,7 +274,11 @@ export class PublicInterestConnector extends BaseConnector {
               prob: Math.max(0, Math.min(1, yesProb)),
               volume: Math.max(0, volume),
               category: market.category || "",
-              source: "Polymarket"
+              source: "Polymarket",
+              url: market.marketSlug ? `https://polymarket.com/event/${market.marketSlug}` : null,
+              endDate: market.endDate || market.closeTime || null,
+              liquidity: market.liquidity || 0,
+              outcomes: market.outcomes || []
             });
           }
         });
@@ -339,8 +343,9 @@ export class PublicInterestConnector extends BaseConnector {
         summaryParts.push(`${gdeltArticleCount} articles`);
       }
     }
-    if (polymarketStatus === "ok") {
-      summaryParts.push(`${polymarketMarkets.length} Polymarket markets`);
+    if (polymarketStatus === "ok" && polymarketMarkets.length > 0) {
+      const avgProb = polymarketMarkets.reduce((sum, m) => sum + m.prob, 0) / polymarketMarkets.length;
+      summaryParts.push(`${polymarketMarkets.length} Polymarket markets (avg ${Math.round(avgProb * 100)}%)`);
     }
     
     const summary = summaryParts.length > 0
@@ -362,8 +367,12 @@ export class PublicInterestConnector extends BaseConnector {
           baselineSize: this.baselineViews.size,
           avgToday,
           avgWeekAgo,
-          polymarketMarkets: polymarketMarkets.slice(0, 10), // Top 10 markets
+          polymarketMarkets: polymarketMarkets.sort((a, b) => b.volume - a.volume).slice(0, 15), // Top 15 by volume
           polymarketCount: polymarketMarkets.length,
+          polymarketAvgProb: polymarketMarkets.length > 0 
+            ? polymarketMarkets.reduce((sum, m) => sum + m.prob, 0) / polymarketMarkets.length 
+            : 0,
+          polymarketTotalVolume: polymarketMarkets.reduce((sum, m) => sum + m.volume, 0),
           dataStatus,
           dataSource: {
             wikipedia: hasRealData ? "ok" : "error",

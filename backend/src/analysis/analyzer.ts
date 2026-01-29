@@ -189,26 +189,50 @@ export function analyzeIndicator(
       // Polymarket data
       const polymarketMarkets = rawRef?.polymarketMarkets || [];
       const polymarketCount = rawRef?.polymarketCount || 0;
+      const polymarketAvgProb = rawRef?.polymarketAvgProb || 0;
+      const polymarketTotalVolume = rawRef?.polymarketTotalVolume || 0;
+      
       if (publicDataSource?.polymarket === "ok" && polymarketCount > 0) {
-        details.push(`Polymarket markets: ${polymarketCount} relevant markets found`);
+        details.push(`Polymarket: ${polymarketCount} relevant prediction markets found`);
+        details.push(`Market consensus: ${Math.round(polymarketAvgProb * 100)}% average probability`);
+        
+        if (polymarketTotalVolume > 0) {
+          const volumeFormatted = polymarketTotalVolume >= 1000000 
+            ? `$${(polymarketTotalVolume / 1000000).toFixed(1)}M` 
+            : polymarketTotalVolume >= 1000 
+            ? `$${(polymarketTotalVolume / 1000).toFixed(1)}K` 
+            : `$${polymarketTotalVolume.toFixed(0)}`;
+          details.push(`Total trading volume: ${volumeFormatted}`);
+        }
+        
         if (polymarketMarkets.length > 0) {
-          details.push("Top Polymarket markets:");
-          polymarketMarkets.slice(0, 5).forEach((market: any) => {
+          details.push("\nTop markets by volume:");
+          polymarketMarkets.slice(0, 8).forEach((market: any, idx: number) => {
             const prob = Math.round((market.prob || 0) * 100);
-            const question = (market.question || "Unknown").substring(0, 60);
-            details.push(`  • "${question}${question.length >= 60 ? '...' : ''}" (${prob}% probability)`);
+            const question = (market.question || "Unknown").substring(0, 70);
+            const volume = market.volume || 0;
+            const volumeStr = volume >= 1000000 
+              ? `$${(volume / 1000000).toFixed(1)}M` 
+              : volume >= 1000 
+              ? `$${(volume / 1000).toFixed(0)}K` 
+              : `$${volume.toFixed(0)}`;
+            const url = market.url || '';
+            details.push(`  ${idx + 1}. "${question}${question.length >= 70 ? '...' : ''}"`);
+            details.push(`     ${prob}% probability • ${volumeStr} volume${url ? ` • ${url}` : ''}`);
           });
-          if (polymarketMarkets.length > 5) {
-            details.push(`  ... and ${polymarketMarkets.length - 5} more markets`);
+          if (polymarketMarkets.length > 8) {
+            details.push(`  ... and ${polymarketMarkets.length - 8} more markets`);
           }
-          // Calculate average probability
-          const avgProb = polymarketMarkets.reduce((sum: number, m: any) => sum + (m.prob || 0), 0) / polymarketMarkets.length;
-          details.push(`Average market probability: ${Math.round(avgProb * 100)}%`);
-          if (avgProb > 0.15) {
-            details.push("📊 Market sentiment indicates elevated risk perception");
+          
+          if (polymarketAvgProb > 0.20) {
+            details.push("\n📊 HIGH: Market consensus indicates elevated risk perception (>20%)");
+          } else if (polymarketAvgProb > 0.12) {
+            details.push("\n📊 MODERATE: Market shows increased concern (>12%)");
+          } else {
+            details.push("\n📊 LOW: Market sentiment within normal range");
           }
         }
-        details.push("Polymarket data source: Prediction markets (crowd-sourced sentiment)");
+        details.push("\nPolymarket: Decentralized prediction market with real money trading");
       } else if (publicDataSource?.polymarket === "empty") {
         details.push("Polymarket: No relevant markets found (searched for Iran/strike/attack/military topics)");
       } else {
