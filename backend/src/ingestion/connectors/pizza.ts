@@ -37,18 +37,35 @@ export class PizzaConnector extends BaseConnector {
           polyMarkets = Object.values(polyResponse.data);
         }
 
-        // Filter for Iran/strike/military markets
-        const iranKeywords = [
-          "iran", "iranian", "strike", "strikes", "military", "attack", "attacks",
-          "pentagon", "us strike", "american strike", "middle east", "conflict"
-        ];
-
+        // Filter for Iran-US conflict markets ONLY
         const relevantMarkets = polyMarkets.filter((market: any) => {
           if (!market) return false;
           const question = (market.question || "").toLowerCase();
           const description = (market.description || "").toLowerCase();
           const text = `${question} ${description}`;
-          return iranKeywords.some(keyword => text.includes(keyword));
+          
+          // Must contain "iran" or "iranian"
+          const hasIran = text.includes("iran");
+          if (!hasIran) return false;
+          
+          // Must be about military/conflict/US relations
+          const isRelevant = 
+            text.includes("strike") || 
+            text.includes("attack") || 
+            text.includes("war") ||
+            text.includes("military") ||
+            text.includes("us ") ||
+            text.includes("u.s.") ||
+            text.includes("united states") ||
+            text.includes("america") ||
+            text.includes("trump") ||
+            text.includes("conflict") ||
+            text.includes("nuclear") ||
+            text.includes("irgc") ||
+            text.includes("israel") ||
+            text.includes("middle east");
+          
+          return isRelevant;
         });
 
         if (relevantMarkets.length > 0) {

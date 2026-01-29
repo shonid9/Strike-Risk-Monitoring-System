@@ -10,16 +10,6 @@ export class MarketsConnector extends BaseConnector {
   async fetchSignals(): Promise<SignalEnvelope[]> {
     // Try to fetch real market data from both Polymarket and PredictIt
     const allMarketDetails: any[] = [];
-    // Expanded keywords to catch more relevant markets
-    const iranKeywords = [
-      "iran", "iranian", "tehran", "persian", "persian gulf",
-      "strike", "strikes", "striking", "struck",
-      "attack", "attacks", "attacking", "attacked",
-      "military", "militar", "war", "warfare", "conflict",
-      "nuclear", "nuke", "missile", "missiles",
-      "us strike", "american strike", "biden", "trump",
-      "middle east", "mideast", "gulf", "israel", "israeli"
-    ];
 
     // Fetch from Polymarket
     try {
@@ -94,26 +84,43 @@ export class MarketsConnector extends BaseConnector {
       
       console.log(`[MarketsConnector] Processing ${polyMarkets.length} total markets from Polymarket`);
 
-      // Enhanced filtering - check question, description, and category
+      // Filter for Iran-US conflict markets ONLY - must contain Iran AND relevant topic
       const polyRelevant = polyMarkets.filter((market: any) => {
         if (!market) return false;
         
-        // Build comprehensive text to search
         const question = (market.question || "").toLowerCase();
         const description = (market.description || "").toLowerCase();
         const category = (market.category || "").toLowerCase();
         const text = `${question} ${description} ${category}`;
         
-        // Check if any keyword matches
-        const hasKeyword = iranKeywords.some(keyword => text.includes(keyword));
+        // Must contain Iran-related terms
+        const hasIran = 
+          text.includes("iran") || 
+          text.includes("iranian") || 
+          text.includes("tehran") ||
+          text.includes("irgc");
         
-        // Also check if it's a geopolitical/military category
-        const isRelevantCategory = category.includes("politics") || 
-                                   category.includes("geopolitics") ||
-                                   category.includes("military") ||
-                                   category.includes("war");
+        if (!hasIran) return false;
         
-        return hasKeyword || (isRelevantCategory && (question.includes("strike") || question.includes("attack")));
+        // Must be about military/conflict/US relations
+        const isRelevant = 
+          text.includes("strike") || 
+          text.includes("attack") || 
+          text.includes("war") ||
+          text.includes("military") ||
+          text.includes("us ") ||
+          text.includes("u.s.") ||
+          text.includes("united states") ||
+          text.includes("america") ||
+          text.includes("trump") ||
+          text.includes("biden") ||
+          text.includes("conflict") ||
+          text.includes("nuclear") ||
+          text.includes("missile") ||
+          text.includes("israel") ||
+          text.includes("middle east");
+        
+        return isRelevant;
       });
 
       polyRelevant.forEach((market: any) => {
@@ -201,11 +208,10 @@ export class MarketsConnector extends BaseConnector {
       
       console.log(`[MarketsConnector] Fetched ${predictitContracts.length} contracts from PredictIt`);
       
-      // Filter for Iran-related contracts - enhanced search
+      // Filter for Iran-US conflict contracts ONLY
       const predictitRelevant = predictitContracts.filter((contract: any) => {
         if (!contract) return false;
         
-        // Build comprehensive text to search
         const name = (contract.name || "").toLowerCase();
         const shortName = (contract.shortName || "").toLowerCase();
         const contractName = (contract.contract_name || "").toLowerCase();
@@ -213,7 +219,33 @@ export class MarketsConnector extends BaseConnector {
         const marketName = (contract.market_name || "").toLowerCase();
         const text = `${name} ${shortName} ${contractName} ${contractShortName} ${marketName}`;
         
-        return iranKeywords.some(keyword => text.includes(keyword));
+        // Must contain Iran
+        const hasIran = 
+          text.includes("iran") || 
+          text.includes("iranian") || 
+          text.includes("tehran") ||
+          text.includes("irgc");
+        
+        if (!hasIran) return false;
+        
+        // Must be about military/conflict/US relations
+        const isRelevant = 
+          text.includes("strike") || 
+          text.includes("attack") || 
+          text.includes("war") ||
+          text.includes("military") ||
+          text.includes("us ") ||
+          text.includes("u.s.") ||
+          text.includes("united states") ||
+          text.includes("america") ||
+          text.includes("trump") ||
+          text.includes("biden") ||
+          text.includes("conflict") ||
+          text.includes("nuclear") ||
+          text.includes("missile") ||
+          text.includes("israel");
+        
+        return isRelevant;
       });
       
       console.log(`[MarketsConnector] Found ${predictitRelevant.length} relevant contracts from PredictIt`);

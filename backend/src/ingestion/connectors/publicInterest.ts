@@ -199,16 +199,6 @@ export class PublicInterestConnector extends BaseConnector {
 
     // Try to fetch Polymarket data for public interest/sentiment
     try {
-      const iranKeywords = [
-        "iran", "iranian", "tehran", "persian", "persian gulf",
-        "strike", "strikes", "striking", "struck",
-        "attack", "attacks", "attacking", "attacked",
-        "military", "militar", "war", "warfare", "conflict",
-        "nuclear", "nuke", "missile", "missiles",
-        "us strike", "american strike", "biden", "trump",
-        "middle east", "mideast", "gulf", "israel", "israeli"
-      ];
-
       // Fetch from Polymarket
       try {
         const activeResponse = await axios.get(this.polymarketUrl, {
@@ -230,14 +220,42 @@ export class PublicInterestConnector extends BaseConnector {
           polyMarkets = Object.values(activeResponse.data);
         }
 
-        // Filter for Iran-related markets
+        // Filter for Iran-US conflict markets ONLY - must contain Iran AND relevant topic
         const relevantMarkets = polyMarkets.filter((market: any) => {
           if (!market) return false;
           const question = (market.question || "").toLowerCase();
           const description = (market.description || "").toLowerCase();
           const category = (market.category || "").toLowerCase();
           const text = `${question} ${description} ${category}`;
-          return iranKeywords.some(keyword => text.includes(keyword));
+          
+          // Must contain Iran-related terms
+          const hasIran = 
+            text.includes("iran") || 
+            text.includes("iranian") || 
+            text.includes("tehran") ||
+            text.includes("irgc");
+          
+          if (!hasIran) return false;
+          
+          // Must be about military/conflict/US relations
+          const isRelevant = 
+            text.includes("strike") || 
+            text.includes("attack") || 
+            text.includes("war") ||
+            text.includes("military") ||
+            text.includes("us ") ||
+            text.includes("u.s.") ||
+            text.includes("united states") ||
+            text.includes("america") ||
+            text.includes("trump") ||
+            text.includes("biden") ||
+            text.includes("conflict") ||
+            text.includes("nuclear") ||
+            text.includes("missile") ||
+            text.includes("israel") ||
+            text.includes("middle east");
+          
+          return isRelevant;
         });
 
         // Extract market details
