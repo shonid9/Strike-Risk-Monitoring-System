@@ -2954,10 +2954,59 @@
             ` : ''}
             ` : ''}
             <div class="modal-data-item">
+              <span class="modal-data-label">${currentLang === "he" ? "פוסטים פופולריים ב-Reddit" : "Popular Reddit Posts"}:</span>
+              <span class="modal-data-value">${rawRef.redditCount || 0} ${currentLang === "he" ? "פוסטים" : "posts"} ${rawRef.redditAvgScore ? `(${currentLang === "he" ? "ממוצע" : "avg"} ${rawRef.redditAvgScore} upvotes)` : ''}</span>
+            </div>
+            <div class="modal-data-item">
               <span class="modal-data-label">${t("rawDataSources")}:</span>
-              <span class="modal-data-value">Wikipedia: ${dataSource.wikipedia === "ok" ? "✅" : "❌"}, GDELT: ${dataSource.gdelt === "ok" ? "✅" : dataSource.gdelt === "empty" ? (currentLang === "he" ? "⚠️ (אין מאמרים)" : "⚠️ (no articles)") : "❌"}, Polymarket: ${dataSource.polymarket === "ok" ? "✅" : dataSource.polymarket === "empty" ? (currentLang === "he" ? "⚠️ (אין שווקים)" : "⚠️ (no markets)") : "❌"}</span>
+              <span class="modal-data-value">Wikipedia: ${dataSource.wikipedia === "ok" ? "✅" : "❌"}, GDELT: ${dataSource.gdelt === "ok" ? "✅" : dataSource.gdelt === "empty" ? (currentLang === "he" ? "⚠️ (אין מאמרים)" : "⚠️ (no articles)") : "❌"}, Polymarket: ${dataSource.polymarket === "ok" ? "✅" : dataSource.polymarket === "empty" ? (currentLang === "he" ? "⚠️ (אין שווקים)" : "⚠️ (no markets)") : "❌"}, Reddit: ${dataSource.reddit === "ok" ? "✅" : dataSource.reddit === "empty" ? (currentLang === "he" ? "⚠️ (אין פוסטים)" : "⚠️ (no posts)") : "❌"}</span>
             </div>
           `;
+          
+          // Add detailed Reddit posts list if available
+          const redditPosts = rawRef.redditPosts || [];
+          if (redditPosts.length > 0) {
+            html += `
+            </div>
+          </div>
+          
+          <div class="modal-section">
+            <div class="modal-section-title">${currentLang === "he" ? "פוסטים פופולריים ב-Reddit" : "Popular Reddit Posts"} (${redditPosts.length})</div>
+            <div class="modal-section-content" style="max-height: 400px; overflow-y: auto;">
+            `;
+            
+            redditPosts.forEach((post, idx) => {
+              const postDate = new Date(post.created_utc * 1000);
+              const hoursAgo = Math.round((Date.now() - postDate.getTime()) / (1000 * 60 * 60));
+              const timeAgo = hoursAgo < 1 ? (currentLang === "he" ? "פחות משעה" : "<1h ago") :
+                             hoursAgo < 24 ? `${hoursAgo}${currentLang === "he" ? "ש" : "h"}` :
+                             `${Math.round(hoursAgo/24)}${currentLang === "he" ? "י" : "d"}`;
+              
+              html += `
+                <div style="border-bottom: 1px solid rgba(255,255,255,0.1); padding: 12px 0; ${idx === 0 ? 'padding-top: 0;' : ''}">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px;">
+                    <div style="font-size: 11px; color: var(--scada-orange); font-weight: 600;">r/${post.subreddit}</div>
+                    <div style="display: flex; gap: 8px; align-items: center; font-size: 10px; color: rgba(255,255,255,0.6);">
+                      <span>▲ ${post.ups}</span>
+                      <span>💬 ${post.num_comments}</span>
+                      <span>${timeAgo}</span>
+                    </div>
+                  </div>
+                  <a href="${post.url}" target="_blank" rel="noopener" style="color: #eee; text-decoration: none; display: block; line-height: 1.4; font-size: 13px;" onmouseover="this.style.color='var(--scada-green)'" onmouseout="this.style.color='#eee'">
+                    ${post.title}
+                  </a>
+                </div>
+              `;
+            });
+            
+            html += `
+            </div>
+          </div>
+          
+          <div class="modal-section">
+            <div class="modal-section-content">
+            `;
+          }
         } else if (indicatorType === "civilAviation") {
           const aircraftCount = rawRef.aircraftOverIran || rawRef.uniqueFlights || 0;
           const baseline = rawRef.baseline || 120;

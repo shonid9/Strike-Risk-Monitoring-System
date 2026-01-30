@@ -9,6 +9,7 @@ export class PublicInterestConnector extends BaseConnector {
   private gdeltDocUrl = "https://api.gdeltproject.org/api/v2/doc/doc";
   private gdeltEventUrl = "https://api.gdeltproject.org/api/v2/event/event";
   private polymarketUrl = "https://gamma-api.polymarket.com/markets";
+  private redditSearchUrl = "https://www.reddit.com/search.json";
   private lastEnvelope: SignalEnvelope[] | null = null;
   private lastFetchedAt = 0;
   private readonly minIntervalMs = 5 * 60 * 1000;
@@ -35,6 +36,8 @@ export class PublicInterestConnector extends BaseConnector {
     let gdeltStatus = "unavailable";
     let polymarketMarkets: any[] = [];
     let polymarketStatus = "unavailable";
+    let redditPosts: any[] = [];
+    let redditStatus = "unavailable";
 
     // Try to fetch real Wikipedia pageviews data
     try {
@@ -321,7 +324,67 @@ export class PublicInterestConnector extends BaseConnector {
       polymarketStatus = "error";
     }
 
-    // Calculate combined intensity from Wikipedia spike, GDELT sentiment, and Polymarket
+    // Try to fetch Reddit posts (popular discussions about Iran-US conflict)
+    try {
+      const redditResponse = await axios.get(this.redditSearchUrl, {
+        params: {
+          q: '(iran OR iranian) AND (strike OR attack OR war OR military OR "united states" OR israel)',
+          sort: 'relevance',
+          t: 'week', // Last week
+          limit: 25,
+          raw_json: 1
+        },
+        timeout: 10000,
+        headers: this.defaultHeaders
+      });
+
+      const posts = redditResponse.data?.data?.children || [];
+      
+      // Filter for popular posts (upvotes > 50) related to Iran-US conflict
+      redditPosts = posts
+        .map((child: any) => child.data)
+        .filter((post: any) => {
+          const text = `${post.title || ""} ${post.selftext || ""}`.toLowerCase();
+          
+          // Must contain Iran
+          const hasIran = text.includes("iran") || text.includes("iranian");
+          if (!hasIran) return false;
+          
+          // Must be relevant to conflict/military AND have decent engagement
+          const isRelevant = (
+            text.includes("strike") || text.includes("attack") || 
+            text.includes("war") || text.includes("military") ||
+            text.includes("us ") || text.includes("united states") ||
+            text.includes("israel")
+          );
+          
+          const isPopular = (post.ups || 0) >= 50; // At least 50 upvotes
+          return isRelevant && isPopular;
+        })
+        .slice(0, 15) // Top 15
+        .map((post: any) => ({
+          title: post.title,
+          subreddit: post.subreddit,
+          ups: post.ups || 0,
+          num_comments: post.num_comments || 0,
+          created_utc: post.created_utc,
+          url: `https://reddit.com${post.permalink}`,
+          score: post.score || 0
+        }));
+
+      if (redditPosts.length > 0) {
+        redditStatus = "ok";
+        console.log(`[PublicInterestConnector] ✅ Reddit data: ${redditPosts.length} popular posts found`);
+      } else {
+        redditStatus = "empty";
+        console.log(`[PublicInterestConnector] Reddit: No popular posts found`);
+      }
+    } catch (error: any) {
+      console.warn(`[PublicInterestConnector] Reddit API failed:`, error.message);
+      redditStatus = "error";
+    }
+
+    // Calculate combined intensity from Wikipedia spike, GDELT sentiment, Polymarket, and Reddit
     // Wikipedia spike (0-1) is primary, GDELT tone (negative = concern) adds to it, Polymarket adds sentiment
     let combinedIntensity = 0;
     if (hasRealData) {
@@ -338,9 +401,16 @@ export class PublicInterestConnector extends BaseConnector {
       const polyBoost = Math.min(0.2, avgProb * 0.2); // Up to +0.2 from Polymarket
       combinedIntensity = Math.min(1, combinedIntensity + polyBoost);
     }
+    // Reddit engagement adds to intensity (popular discussions = public concern)
+    if (redditPosts.length > 0) {
+      const avgScore = redditPosts.reduce((sum, p) => sum + p.ups, 0) / redditPosts.length;
+      // Normalize: 50-200 upvotes = 0-0.1 boost
+      const redditBoost = Math.min(0.1, Math.max(0, (avgScore - 50) / 1500)); // Up to +0.1
+      combinedIntensity = Math.min(1, combinedIntensity + redditBoost);
+    }
     
     // If no data sources available, use baseline estimate based on current geopolitical situation
-    if (!hasRealData && gdeltStatus !== "ok" && polymarketStatus !== "ok") {
+    if (!hasRealData && gdeltStatus !== "ok" && polymarketStatus !== "ok" && redditStatus !== "ok") {
       // Baseline: moderate concern (Iran-US tensions are ongoing)
       combinedIntensity = 0.25; // 25% baseline for known tensions
       console.log(`[PublicInterestConnector] Using baseline estimate (all APIs unavailable)`);
@@ -379,6 +449,9 @@ export class PublicInterestConnector extends BaseConnector {
       const avgProb = polymarketMarkets.reduce((sum, m) => sum + m.prob, 0) / polymarketMarkets.length;
       summaryParts.push(`${polymarketMarkets.length} Polymarket markets (avg ${Math.round(avgProb * 100)}%)`);
     }
+    if (redditStatus === "ok" && redditPosts.length > 0) {
+      summaryParts.push(`${redditPosts.length} Reddit posts`);
+    }
     
     // If we have partial data, show it. If no data at all, use baseline estimate
     let summary: string;
@@ -414,11 +487,17 @@ export class PublicInterestConnector extends BaseConnector {
             ? polymarketMarkets.reduce((sum, m) => sum + m.prob, 0) / polymarketMarkets.length 
             : 0,
           polymarketTotalVolume: polymarketMarkets.reduce((sum, m) => sum + m.volume, 0),
+          redditPosts: redditPosts, // Reddit discussions
+          redditCount: redditPosts.length,
+          redditAvgScore: redditPosts.length > 0 
+            ? Math.round(redditPosts.reduce((sum, p) => sum + p.ups, 0) / redditPosts.length)
+            : 0,
           dataStatus,
           dataSource: {
             wikipedia: hasRealData ? "ok" : "error",
             gdelt: gdeltStatus,
-            polymarket: polymarketStatus
+            polymarket: polymarketStatus,
+            reddit: redditStatus
           }
         },
       }),
