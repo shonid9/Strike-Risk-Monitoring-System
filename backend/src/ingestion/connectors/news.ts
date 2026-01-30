@@ -55,12 +55,24 @@ export class NewsConnector extends BaseConnector {
       const articlesData = response.data?.articles?.results || response.data?.articles || [];
       const articles = Array.isArray(articlesData) ? articlesData : [];
       
-      // Filter and analyze articles
-      const strikeKeywords = ["strike", "attack", "imminent", "military", "nuclear", "bombing", "raid"];
+      // Filter ONLY Iran-US-Israel related military/strike articles
       const matchedArticles = articles.filter((article: any) => {
         // Event Registry format: title, body, or text fields
         const text = `${article.title || ""} ${article.body || ""} ${article.text || ""}`.toLowerCase();
-        return strikeKeywords.some(keyword => text.includes(keyword));
+        
+        // MUST contain Iran
+        const hasIran = text.includes("iran") || text.includes("iranian") || text.includes("tehran");
+        if (!hasIran) return false;
+        
+        // MUST be about military/conflict with US/Israel OR strike/attack context
+        const hasRelevantContext = 
+          text.includes("us ") || text.includes("u.s.") || text.includes("united states") || text.includes("america") ||
+          text.includes("israel") || text.includes("israeli") ||
+          text.includes("strike") || text.includes("attack") || 
+          text.includes("military action") || text.includes("imminent") ||
+          text.includes("nuclear") || text.includes("bombing") || text.includes("raid");
+        
+        return hasRelevantContext;
       });
 
       const matchedCount = matchedArticles.length;
@@ -314,10 +326,23 @@ export class NewsConnector extends BaseConnector {
   }
 
   private filterRssArticles(items: any[]): any[] {
-    const strikeKeywords = ["iran", "strike", "attack", "imminent", "military", "nuclear", "bombing", "raid", "centcom", "pentagon"];
     return items.filter((item) => {
       const text = `${item.title || ""} ${item.description || ""}`.toLowerCase();
-      return strikeKeywords.some((keyword) => text.includes(keyword));
+      
+      // MUST contain Iran
+      const hasIran = text.includes("iran") || text.includes("iranian") || text.includes("tehran");
+      if (!hasIran) return false;
+      
+      // MUST be about military/conflict with US/Israel OR strike/attack context
+      const hasRelevantContext = 
+        text.includes("us ") || text.includes("u.s.") || text.includes("united states") || text.includes("america") ||
+        text.includes("israel") || text.includes("israeli") ||
+        text.includes("strike") || text.includes("attack") || 
+        text.includes("military") || text.includes("imminent") ||
+        text.includes("nuclear") || text.includes("bombing") || text.includes("raid") ||
+        text.includes("centcom") || text.includes("pentagon");
+      
+      return hasRelevantContext;
     });
   }
 
