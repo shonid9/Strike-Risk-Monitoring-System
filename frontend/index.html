@@ -2826,6 +2826,7 @@
         if (indicatorType === "newsIntel") {
           const articles = rawRef.matchedArticles || rawRef.totalArticles || 0;
           const urgentTone = rawRef.imminentTone || 0;
+          const articlesList = rawRef.articles || [];
           html += `
             <div class="modal-data-item">
               <span class="modal-data-label">${t("rawArticlesFound")}:</span>
@@ -2846,6 +2847,53 @@
               <span class="modal-data-value">Iran AND (strike OR attack OR military OR nuclear)</span>
             </div>
           `;
+          
+          // Add detailed articles list if available
+          if (articlesList.length > 0) {
+            html += `
+            </div>
+          </div>
+          
+          <div class="modal-section">
+            <div class="modal-section-title">${currentLang === "he" ? "כתבות מפורטות" : "Detailed Articles"} (${articlesList.length})</div>
+            <div class="modal-section-content" style="max-height: 400px; overflow-y: auto;">
+            `;
+            
+            articlesList.forEach((article, idx) => {
+              const articleDate = new Date(article.date);
+              const formattedDate = articleDate.toLocaleString(currentLang === "he" ? "he-IL" : "en-US", {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+              const hoursAgo = Math.round((Date.now() - articleDate.getTime()) / (1000 * 60 * 60));
+              const timeAgo = hoursAgo < 1 ? (currentLang === "he" ? "פחות משעה" : "<1h ago") :
+                             hoursAgo < 24 ? `${hoursAgo}${currentLang === "he" ? "ש" : "h"}` :
+                             `${Math.round(hoursAgo/24)}${currentLang === "he" ? "י" : "d"}`;
+              
+              html += `
+                <div style="border-bottom: 1px solid rgba(255,255,255,0.1); padding: 12px 0; ${idx === 0 ? 'padding-top: 0;' : ''}">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px;">
+                    <div style="font-size: 11px; color: var(--scada-blue); font-weight: 600;">${article.source}</div>
+                    <div style="font-size: 10px; color: rgba(255,255,255,0.6); white-space: nowrap;">${timeAgo}</div>
+                  </div>
+                  ${article.url ? `<a href="${article.url}" target="_blank" rel="noopener" style="color: #eee; text-decoration: none; display: block; margin-bottom: 4px; line-height: 1.4; font-size: 13px;" onmouseover="this.style.color='var(--scada-green)'" onmouseout="this.style.color='#eee'">` : `<div style="margin-bottom: 4px; line-height: 1.4; font-size: 13px;">`}
+                    ${article.title}
+                  ${article.url ? `</a>` : `</div>`}
+                  <div style="font-size: 10px; color: rgba(255,255,255,0.5);">${formattedDate}</div>
+                </div>
+              `;
+            });
+            
+            html += `
+            </div>
+          </div>
+          
+          <div class="modal-section">
+            <div class="modal-section-content">
+            `;
+          }
         } else if (indicatorType === "publicInterest") {
           // wikiSpike is normalized 0-1: 0.25 = baseline, >0.25 = positive, <0.25 = negative
           const wikiSpikeNormalized = rawRef.wikiSpike || 0.25;

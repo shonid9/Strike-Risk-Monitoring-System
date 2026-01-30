@@ -148,6 +148,28 @@ export class NewsConnector extends BaseConnector {
       
       const activeOutlets = [...new Set([...eventRegistrySources, ...rssResult.sources])];
 
+      // Extract detailed article info for display (top 15 by recency)
+      const detailedArticles = matchedArticles.slice(0, 15).map((article: any) => ({
+        title: article.title || article.headline || "No title",
+        date: article.dateTime || article.date || article.publishedAt || new Date().toISOString(),
+        source: article.source?.title || article.source?.name || article.source?.uri?.split('/').pop() || "Unknown",
+        url: article.url || article.uri || null,
+        body: (article.body || article.text || "").substring(0, 200)
+      }));
+
+      // Add RSS articles details
+      const detailedRssArticles = rssMatched.slice(0, 10).map((item: any) => ({
+        title: item.title || "No title",
+        date: item.pubDate || item.published || new Date().toISOString(),
+        source: item.source || "RSS",
+        url: item.link || null,
+        body: (item.description || item.summary || "").substring(0, 200)
+      }));
+
+      const allDetailedArticles = [...detailedArticles, ...detailedRssArticles]
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 20); // Top 20 most recent
+
       return [
         this.makeEnvelope({
           source: this.config.name,
@@ -174,7 +196,8 @@ export class NewsConnector extends BaseConnector {
             },
             rssSources: rssResult.sources,
             rssUpdatedAt: rssResult.fetchedAt,
-            rssFeeds: this.rssFeeds.map((f) => f.name)
+            rssFeeds: this.rssFeeds.map((f) => f.name),
+            articles: allDetailedArticles // NEW: detailed article list
           },
         }),
       ];
@@ -188,6 +211,15 @@ export class NewsConnector extends BaseConnector {
       // Calculate intensity directly from data - no artificial baseline
       const calculatedIntensity = (rssMatchedCount / 12) * 0.6;
       const intensity = Math.min(1, Math.max(0, calculatedIntensity));
+
+      // Extract RSS articles details
+      const detailedRssArticles = rssMatched.slice(0, 20).map((item: any) => ({
+        title: item.title || "No title",
+        date: item.pubDate || item.published || new Date().toISOString(),
+        source: item.source || "RSS",
+        url: item.link || null,
+        body: (item.description || item.summary || "").substring(0, 200)
+      }));
 
       return [
         this.makeEnvelope({
@@ -216,7 +248,8 @@ export class NewsConnector extends BaseConnector {
             rssSources: rssResult.sources,
             rssUpdatedAt: rssResult.fetchedAt,
             rssFeeds: this.rssFeeds.map((f) => f.name),
-            error: error?.message || "Event Registry error"
+            error: error?.message || "Event Registry error",
+            articles: detailedRssArticles // NEW: detailed article list
           },
         }),
       ];
