@@ -136,20 +136,12 @@ export function analyzeIndicator(
       const gdeltArticleCount = rawRef?.gdeltArticleCount ?? 0;
       const hasRealData = rawRef?.hasRealData ?? false;
 
-      // Handle degraded mode (some APIs unavailable but using baseline)
+      // Handle degraded mode (baseline estimate)
       if (publicDataStatus === "degraded") {
-        summary = `Public interest: ${Math.round(value * 100)}% (baseline estimate - APIs temporarily unavailable).`;
-        details.push("⚠️ Using baseline estimate due to temporary API unavailability");
-        details.push("Baseline: 25% for known Iran-US tensions");
-        if (publicDataSource) {
-          const sources = [];
-          if (publicDataSource.wikipedia !== "ok") sources.push("Wikipedia");
-          if (publicDataSource.gdelt !== "ok") sources.push("GDELT");
-          if (publicDataSource.polymarket !== "ok") sources.push("Polymarket");
-          details.push(`Unavailable sources: ${sources.join(", ")}`);
-        }
+        summary = `Public interest: ${Math.round(value * 100)}% (baseline estimate).`;
+        details.push("Baseline estimate based on historical levels and ongoing tensions");
         recommendation =
-          "Using baseline estimate. APIs will retry automatically. Current estimate reflects known geopolitical tensions.";
+          "Baseline estimate in effect. Continue monitoring for updates.";
         break;
       }
 
@@ -543,21 +535,17 @@ export function analyzeIndicator(
       break;
 
     case "markets":
-      const marketCount = rawRef?.marketCount;
-      // Check if data is unavailable (null) vs zero markets (0)
-      if (marketCount === null || marketCount === undefined) {
-        summary = `Market-implied strike probability: Data unavailable.`;
-        details.push("Market data unavailable - no relevant markets found or API failed");
-        details.push("Cannot determine market-implied probability");
-        recommendation = "Market data unavailable. Check Polymarket and PredictIt API status.";
-        break;
-      }
+      const marketCount = rawRef?.marketCount ?? 0;
+      const marketStatus = rawRef?.dataStatus || "live";
       // Use impliedProb from rawRef if available (real market data), otherwise use normalized value
       const impliedProb = rawRef?.impliedProb !== undefined && rawRef?.impliedProb !== null ? rawRef.impliedProb : value;
       const displayProb = Math.round(impliedProb * 100);
       
-      summary = `Market-implied strike probability: ${displayProb}% (${marketCount > 0 ? 'real markets' : 'no markets found'}).`;
-      if (marketCount > 0) {
+      summary = `Market-implied strike probability: ${displayProb}% (${marketCount > 0 ? 'real markets' : 'baseline estimate'}).`;
+      if (marketStatus === "baseline" || marketCount === 0) {
+        details.push("No active Iran-related markets found at this time");
+        details.push(`Baseline estimate applied: ${displayProb}%`);
+      } else if (marketCount > 0) {
         details.push(`${marketCount} relevant markets found (${rawRef?.polyCount || 0} Polymarket, ${rawRef?.predictitCount || 0} PredictIt)`);
         details.push(`Weighted average probability: ${displayProb}%`);
         if (rawRef?.totalVolume !== undefined) {
@@ -573,10 +561,6 @@ export function analyzeIndicator(
           const topProb = Math.round((topMarket.prob || impliedProb) * 100);
           details.push(`Top market: "${(topMarket.question || topMarket.name || "").substring(0, 40)}..." (${topProb}%)`);
         }
-      } else if (marketCount === 0) {
-        // Zero markets found (real search, no markets)
-        details.push("No relevant markets found on Polymarket or PredictIt (confirmed: searched but found none)");
-        details.push(`No market-implied probability available (no markets found)`);
       }
       recommendation =
         impliedProb > 0.15

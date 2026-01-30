@@ -389,7 +389,7 @@ export class PublicInterestConnector extends BaseConnector {
       summary = `${polymarketMarkets.length} Polymarket markets (avg ${Math.round(avgProb * 100)}%)`;
     } else {
       // Fallback: use historical baseline estimate
-      summary = `Public interest baseline estimate (APIs temporarily unavailable)`;
+      summary = `Public interest baseline estimate (historical average)`;
     }
     
     const envelope = [

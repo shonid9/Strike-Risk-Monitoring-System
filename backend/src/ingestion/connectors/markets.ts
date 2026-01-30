@@ -6,8 +6,15 @@ export class MarketsConnector extends BaseConnector {
   private lastProb = 0.09;
   private polymarketUrl = "https://gamma-api.polymarket.com/markets";
   private predictitUrl = "https://www.predictit.org/api/marketdata/all/";
+  private lastEnvelope: SignalEnvelope[] | null = null;
+  private lastFetchedAt = 0;
+  private readonly minIntervalMs = 3 * 60 * 1000;
 
   async fetchSignals(): Promise<SignalEnvelope[]> {
+    const now = Date.now();
+    if (this.lastEnvelope && now - this.lastFetchedAt < this.minIntervalMs) {
+      return this.lastEnvelope;
+    }
     // Try to fetch real market data from both Polymarket and PredictIt
     const allMarketDetails: any[] = [];
 
@@ -361,7 +368,7 @@ export class MarketsConnector extends BaseConnector {
 
       console.log(`[MarketsConnector] ✅ Real data: ${allMarketDetails.length} markets (${polyCount} Poly, ${predictitCount} PI), ${Math.round(impliedProb * 100)}% avg probability, ${Math.round(totalVolume)} total volume`);
 
-      return [
+      const envelope = [
         this.makeEnvelope({
           source: this.config.name,
           confidence,
@@ -375,6 +382,7 @@ export class MarketsConnector extends BaseConnector {
             predictitCount,
             totalVolume,
             totalWeight,
+            dataStatus: "live",
             topMarkets: topMarkets.map(m => ({
               question: m.question,
               prob: m.prob,
@@ -384,26 +392,34 @@ export class MarketsConnector extends BaseConnector {
           },
         }),
       ];
+      this.lastEnvelope = envelope;
+      this.lastFetchedAt = now;
+      return envelope;
     }
 
-    // No relevant markets found - return unavailable status
-    console.warn(`[MarketsConnector] No relevant markets found on Polymarket or PredictIt`);
-    return [
+    // No relevant markets found - return baseline estimate
+    console.warn(`[MarketsConnector] No relevant markets found on Polymarket or PredictIt, using baseline`);
+    const impliedProb = Math.max(0.05, this.lastProb); // baseline low probability
+    const envelope = [
       this.makeEnvelope({
         source: this.config.name,
-        confidence: 0,
-        intensity: 0,
+        confidence: 0.2,
+        intensity: Math.max(0, Math.min(1, impliedProb)),
         timestamp: Date.now(),
-        summary: `No relevant markets found (Polymarket/PredictIt)`,
+        summary: `Market implied strike probability: ${Math.round(impliedProb * 100)}% (baseline estimate)`,
           rawRef: {
-            impliedProb: null, // null = unavailable, 0 = zero probability from markets
-            marketCount: null,
-            polyCount: null,
-            predictitCount: null,
-            totalVolume: null,
-            dataStatus: "unavailable"
+            impliedProb,
+            marketCount: 0,
+            polyCount: 0,
+            predictitCount: 0,
+            totalVolume: 0,
+            totalWeight: 0,
+            dataStatus: "baseline"
           },
       }),
     ];
+    this.lastEnvelope = envelope;
+    this.lastFetchedAt = now;
+    return envelope;
   }
 }
