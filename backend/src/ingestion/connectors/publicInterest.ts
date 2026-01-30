@@ -20,9 +20,10 @@ export class PublicInterestConnector extends BaseConnector {
   async fetchSignals(): Promise<SignalEnvelope[]> {
     const now = Date.now();
     // Only use cache if last fetch was successful (had real data)
+    const cachedRef = this.lastEnvelope?.[0]?.rawRef as { dataStatus?: string } | undefined;
     if (this.lastEnvelope && 
         now - this.lastFetchedAt < this.minIntervalMs && 
-        this.lastEnvelope[0]?.rawRef?.dataStatus === "live") {
+        cachedRef?.dataStatus === "live") {
       return this.lastEnvelope;
     }
     let gdeltTone: number | null = null;
